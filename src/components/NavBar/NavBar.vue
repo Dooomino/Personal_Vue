@@ -1,7 +1,7 @@
 <template>
-  <div class="navbar text-gray-800 dark:text-white w-screen h-8 px-4 fixed top-0 left-0 z-5000 flex items-center bg-white dark:bg-black">
+  <div class="navbar text-gray-800 dark:text-white w-screen h-8 px-4 fixed top-0 left-0 z-5000 flex items-center bg-light-bg dark:bg-dark-bg">
     <div class="absolute right-0 top-0 !mx-4 h-full flex items-center">
-      <n-switch :rail-style="railStyle" v-model:value="checked" @update:checked="onUpdateChecked">
+      <n-switch :rail-style="railStyle" v-model:value="checked" @update:value="onUpdateChecked">
         <template #checked-icon>
           <n-icon :component="Moon" />
         </template>
@@ -17,9 +17,19 @@ import { Moon, Sun } from '@vicons/carbon'
 import type { CSSProperties } from 'vue'
 import { NIcon, NSwitch } from 'naive-ui'
 import { useThemeStore } from '@/stores/theme'
-import { ref } from 'vue'
+import { ref, watch } from 'vue'
 
-const checked = ref(true)
+const themeStore = useThemeStore()
+const checked = ref(themeStore.isDarkMode)
+
+// 监听主题状态变化，同步开关状态
+watch(
+  () => themeStore.isDarkMode,
+  (newVal) => {
+    checked.value = newVal
+  }
+)
+
 function railStyle({
   focused,
   checked
@@ -42,8 +52,8 @@ function railStyle({
   }
   return style
 }
-const themeStore = useThemeStore()
-function onUpdateChecked() {
-  themeStore.toggleDarkMode(!themeStore.isDarkMode)
+
+function onUpdateChecked(value: boolean) {
+  themeStore.toggleDarkMode(value)
 }
 </script>

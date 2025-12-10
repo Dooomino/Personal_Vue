@@ -4,7 +4,7 @@ import { defineStore } from 'pinia'
 const THEME_DARK = 'dark'
 const THEME_LIGHT = 'light'
 const THEME_KEY = 'theme'
-const DARKMODE_CLASS = 'darkmode'
+const DARK_CLASS = 'dark-theme'
 
 export const useThemeStore = defineStore('theme', {
   state: () => ({
@@ -21,6 +21,8 @@ export const useThemeStore = defineStore('theme', {
       // 如果有保存的设置，则使用保存的设置，否则默认使用暗黑模式
       if (savedTheme !== null) {
         this.isDarkMode = savedTheme === THEME_DARK
+      } else {
+        localStorage.setItem(THEME_KEY, THEME_DARK)
       }
 
       this.applyThemeClasses()
@@ -30,12 +32,14 @@ export const useThemeStore = defineStore('theme', {
      * 应用主题相关的 CSS 类和属性
      */
     applyThemeClasses() {
+      const htmlElement = document.documentElement;
+
       if (this.isDarkMode) {
-        document.documentElement.classList.add(DARKMODE_CLASS)
-        document.documentElement.style.setProperty('color-scheme', THEME_DARK)
+        htmlElement.classList.add(DARK_CLASS)
+        htmlElement.style.colorScheme = THEME_DARK
       } else {
-        document.documentElement.classList.remove(DARKMODE_CLASS)
-        document.documentElement.style.setProperty('color-scheme', THEME_LIGHT)
+        htmlElement.classList.remove(DARK_CLASS)
+        htmlElement.style.colorScheme = THEME_LIGHT
       }
     },
 

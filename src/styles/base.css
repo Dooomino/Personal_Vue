@@ -1,0 +1,17 @@
+@import 'tailwindcss/preflight';
+@import 'tailwindcss';
+
+:root {
+  --primary-color: #3b82f6;
+  --background-color: #ffffff;
+}
+
+[data-theme="dark"] {
+  --primary-color: #60a5fa;
+  --background-color: #111827;
+}
+
+.button {
+  background-color: var(--primary-color);
+  color: var(--background-color);
+}
