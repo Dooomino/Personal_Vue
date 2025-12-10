@@ -17,10 +17,14 @@ export default {
           700: '#1d4ed8',
           800: '#1e40af',
           900: '#1e3a8a',
-          950: '#172554'
-        }
-      }
+          950: '#172554',
+        },
+      },
     },
   },
-  darkMode: ['selector', '[class~="my-app-dark"]'], //dark mode configuration
+  plugins: {
+    '@tailwindcss/postcss': {},
+    autoprefixer: {},
+  },
+  darkMode: ['selector', '[class~="darkmode"]'], //dark mode configuration
 }

@@ -1,19 +1,24 @@
-<script setup lang="ts">
 
-</script>
 
 <template>
-  <main class="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 dark:from-gray-800 dark:to-gray-900">
+  <main class="h-full w-full">
     <!-- 头部区域 -->
-    <section class="hero py-20 px-4 text-center">
+    <NavBar />
 
-    </section>
-
-    <!-- 功能特性区域 -->
-    <section class="py-16 px-4">
-
-    </section>
+    <BackCanvas />
   </main>
 </template>
+<script setup lang="ts">
+import BackCanvas from '@/components/background/BackCanvas.vue';
+import NavBar from '@/components/NavBar/NavBar.vue';
 
-<style lang="postcss" scoped></style>
+defineOptions({
+  name: 'HomeView',
+  components: {
+    BackCanvas,
+    NavBar,
+  },
+});
+
+</script>
+<style scoped></style>
