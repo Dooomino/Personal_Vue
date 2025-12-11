@@ -4,7 +4,7 @@ import { defineStore } from 'pinia'
 const THEME_DARK = 'dark'
 const THEME_LIGHT = 'light'
 const THEME_KEY = 'theme'
-const DARK_CLASS = 'dark-theme'
+const DARK_CLASS = 'dark'
 
 export const useThemeStore = defineStore('theme', {
   state: () => ({
