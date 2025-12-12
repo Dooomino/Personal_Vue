@@ -6,11 +6,12 @@
 </template>
 <script setup lang="ts">
   /* eslint-disable-next-line */
-import { onMounted, reactive, ref } from 'vue'
+import { onMounted, reactive, ref, watchEffect } from 'vue'
 import * as THREE from 'three'
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js'
 import { GUI } from "three/examples/jsm/libs/lil-gui.module.min.js";
-
+import { DRACOLoader, GLTFLoader } from 'three/examples/jsm/Addons.js';
+import { SketchOutlineShader } from './shaders/moebius';
 interface MeshRefValue {
   mesh: THREE.Mesh;
   material: THREE.MeshBasicMaterial;
@@ -28,7 +29,8 @@ const threeObjects = reactive({
   },
   meshes: {
     box: null as THREE.Mesh | null,
-    plane: null as THREE.Mesh | null
+    plane: null as THREE.Mesh | null,
+    lamp: null as THREE.Mesh | null
   },
   materials: {
     box: null as THREE.Material | null,
@@ -39,7 +41,13 @@ const threeObjects = reactive({
     plane: null as THREE.PlaneGeometry | null
   },
   lights: {
-    ambient: null as THREE.AmbientLight | null
+    ambient: null as THREE.AmbientLight | null,
+    directional: null as THREE.DirectionalLight | null,
+    point: null as THREE.PointLight | null,
+    spot: null as THREE.SpotLight | null
+  },
+  tracker:{
+    spotTracker: null as THREE.Mesh | null,
   }
 });
 
@@ -54,12 +62,13 @@ function resetControls() {
     threeObjects.controls.reset();
   }
   if (threeObjects.meshes.box) {
-    threeObjects.meshes.box.position.set(0, 15.1, 0);
+    threeObjects.meshes.box.position.set(0, 16, 0);
   }
 }
 
 function createScene() {
   const scene = new THREE.Scene();
+  scene.background = new THREE.Color(0x2288cc);
   threeObjects.scene = scene;
   return scene;
 }
@@ -71,10 +80,11 @@ function createGeometries() {
   const planeGeometry = new THREE.PlaneGeometry(100, 100);
   threeObjects.geometries.plane = planeGeometry;
 
+
   return { boxGeometry, planeGeometry };
 }
-function createRepeatTextures(url:string,repeat:number){
-  // 使用public目录中的纹理文件
+function createRepeatTextures(url: string, repeat: number) {
+  // 使用相对路径引用src/assets/textures目录下的纹理文件
   const loader = new THREE.TextureLoader();
   const texture = loader.load(url);
   texture.wrapS = THREE.RepeatWrapping;
@@ -84,43 +94,129 @@ function createRepeatTextures(url:string,repeat:number){
   texture.repeat.set(repeat, repeat);
   return texture;
 }
-function createMaterials() {
-  const boxMaterial = new THREE.MeshPhongMaterial({
-    side: THREE.DoubleSide,
-    map: createRepeatTextures('/src/assets/textures/checker.png',4)
-  });
-  threeObjects.materials.box = boxMaterial;
 
-  // const planeMaterial = new THREE.MeshBasicMaterial({
-  //   color: 0x999999,
-  //   side: THREE.DoubleSide
-  // });
-  const planeMaterial = new THREE.MeshPhongMaterial({
-    side: THREE.DoubleSide,
-    map: createRepeatTextures('/src/assets/textures/checker.png',40)
-  });
-
-  threeObjects.materials.plane = planeMaterial;
-
-  return { boxMaterial, planeMaterial };
+function loadTexture(url: string){
+  const loader = new THREE.TextureLoader();
+  const texture = loader.load(url);
+  return texture;
 }
 
-function createMeshes(scene: THREE.Scene) {
+function createMaterials() {
+  // const boxMaterial = new THREE.MeshPhongMaterial({
+  //   side: THREE.DoubleSide,
+  //   map: createRepeatTextures('/src/assets/textures/concrete.png', 1),
+  //   normalMap: loadTexture('/src/assets/textures/concrete-normal-map.png'),
+  //   aoMap: loadTexture('/src/assets/textures/concrete-ao-map.png'),
+  //   // displacementMap: loadTexture('/src/assets/textures/concrete-displacement-map.png'),
+  //   // roughness : 1,
+  //   // metalness:0,
+  //   // clearcoat: 0,
+  // });
+  // const boxMaterial = new THREE.MeshPhysicalMaterial({
+  //   metalness: .9,
+  //   roughness: .05,
+  //   envMapIntensity: 0.9,
+  //   clearcoat: 1,
+  //   transparent: true,
+  //   opacity: .5,
+  //   reflectivity: 0.2,
+  //   ior: 0.9,
+  //   side: THREE.BackSide,
+  //   })
+  const shaderMaterial = new THREE.ShaderMaterial({
+    uniforms: THREE.UniformsUtils.clone(SketchOutlineShader.uniforms),
+    vertexShader: SketchOutlineShader.vertexShader,
+    fragmentShader: SketchOutlineShader.fragmentShader,
+    blending: THREE.NormalBlending,
+    side: THREE.DoubleSide,
+    transparent: true
+  });
+
+  // 设置默认属性
+  shaderMaterial.uniforms.outlineColor.value = new THREE.Color(0x333333);
+  shaderMaterial.uniforms.outlineThickness.value = 1.0;
+  shaderMaterial.uniforms.objectColor.value = new THREE.Color(0xcccccc); // 默认对象颜色
+
+  const boxMaterial = shaderMaterial.clone();
+  // 为盒子设置不同的颜色
+  boxMaterial.uniforms.objectColor.value = new THREE.Color(0x4CAF50); // 绿色
+
+  threeObjects.materials.box = boxMaterial;
+
+  // const planeMaterial = shaderMaterial.clone();
+  const planeMaterial = new THREE.MeshPhongMaterial({
+    side: THREE.DoubleSide,
+    map: createRepeatTextures('/src/assets/textures/checker.png', 40),
+  });
+  // // 为平面设置不同的颜色
+  // planeMaterial.uniforms.objectColor.value = new THREE.Color(0x9E9E9E); // 灰色
+  threeObjects.materials.plane = planeMaterial;
+
+  // 使用普通材质给灯具
+  const lampMaterial = new THREE.MeshPhongMaterial({
+    side: THREE.DoubleSide,
+  });
+
+  return { boxMaterial, planeMaterial, lampMaterial };
+}
+
+function loadGLB(url: string,scene:THREE.Scene){
+  const loader = new GLTFLoader();
+  const dracoLoader = new DRACOLoader();
+  dracoLoader.setDecoderPath('/public/lib/draco/gltf/draco_decoder.js');
+  loader.setDRACOLoader(dracoLoader);
+  return new Promise((resolve) => {
+    loader.load(url, (gltf) => {
+      gltf.scene.scale.set(1,1,1);
+      scene.add(gltf.scene);
+      resolve(gltf.scene.children[0]);
+    }, (progress) => {
+      console.log(`加载进度: ${(progress.loaded / progress.total * 100).toFixed(2)}%`);
+    }, (error) => {
+      console.error('加载失败:', error);
+    });
+  })
+}
+async function createMeshes(scene: THREE.Scene) {
   const { boxGeometry, planeGeometry } = createGeometries();
-  const { boxMaterial, planeMaterial } = createMaterials();
+  const { boxMaterial, planeMaterial, lampMaterial } = createMaterials();
 
   const boxMesh = new THREE.Mesh(boxGeometry, boxMaterial);
-  boxMesh.position.set(0, 15.1, 0);
+  boxMesh.position.set(30, 16, 0);
   boxMesh.scale.set(30,30,30);
+  boxMesh.castShadow = true; // 启用投影
   threeObjects.meshes.box = boxMesh;
   scene.add(boxMesh);
 
   const planeMesh = new THREE.Mesh(planeGeometry, planeMaterial);
   // 注意：这里修正了原代码中的问题，应该是对planeMesh进行scale操作而不是plane几何体
   planeMesh.scale.set(100, 100, 100);
+  planeMesh.receiveShadow = true; // 接收阴影
   scene.add(planeMesh);
   threeObjects.meshes.plane = planeMesh;
   planeMesh.rotateX(Math.PI / 2);
+
+  const lamp = await loadGLB('/src/assets/model/lamp.glb',scene) as THREE.Mesh;
+
+  const oglampMat = lamp.material as THREE.MeshPhysicalMaterial;
+  lamp.material = lampMaterial;
+  // 修复类型错误
+  if ('map' in oglampMat && oglampMat.map) {
+    (lamp.material as THREE.MeshPhysicalMaterial).map = oglampMat.map;
+  }
+  threeObjects.meshes.lamp = lamp;
+
+  lamp.scale.set(30,30,30);
+  lamp.castShadow = true; // 启用投影
+
+  const sphereGeometry = new THREE.SphereGeometry(1, 32, 32);
+  const spotMaterial = new THREE.MeshBasicMaterial({
+    color: 0xffffff,
+  });
+  const spotMesh = new THREE.Mesh(sphereGeometry, spotMaterial);
+  spotMesh.position.set(0,0,0);
+  threeObjects.tracker.spotTracker = spotMesh;
+  // scene.add(spotMesh);
 
   return { boxMesh, planeMesh };
 }
@@ -140,28 +236,44 @@ function createRenderer(width: number, height: number) {
   return renderer;
 }
 function createAmbientLight(scene: THREE.Scene) {
-  const ambientLight = new THREE.AmbientLight(0xffffff, 0.4);
+  const ambientLight = new THREE.AmbientLight(0xffffff, 0.5);
   scene.add(ambientLight);
   threeObjects.lights.ambient = ambientLight;
 
 }
 
-function createDirectionalLight(scene: THREE.Scene) {
+function createDirectionalLight(scene: THREE.Scene,intense:number) {
     // 添加方向光，这是Phong材质必需的
-    const directionalLight = new THREE.DirectionalLight(0xffffff, 1);
-    directionalLight.position.set(100, 200, 10);
+    const directionalLight = new THREE.DirectionalLight(0xffffff, intense);
+    directionalLight.position.set(30, 20, 30);
     directionalLight.castShadow = true;
     directionalLight.target.position.set(0, 0, 0);
     scene.add(directionalLight);
+    return directionalLight;
+}
+function createSpotLight(scene: THREE.Scene,intense:number,lookAt:THREE.Vector3,color:number) {
+  const spotLight = new THREE.SpotLight(color, intense,0,Math.PI/2, 1.5, 1.5);
+  const target = new THREE.Object3D();
+  target.position.set(lookAt.x, lookAt.y, lookAt.z);
+  scene.add(target);
+  spotLight.target = target;
+  spotLight.castShadow = true;
+  spotLight.shadow.mapSize.width = 1024;
+  spotLight.shadow.mapSize.height = 1024;
+  spotLight.shadow.camera.near = 500;
+  spotLight.shadow.camera.far = 4000;
+  spotLight.shadow.camera.fov = 30;
+  threeObjects.lights.spot = spotLight;
+  scene.add(spotLight);
 }
 function createLights(scene: THREE.Scene,type:string) {
   if (!type){
     return
   }
   if(type==='ambient'){
-    createAmbientLight(scene);
+    return createAmbientLight(scene);
   } else if (type === 'directional') {
-    createDirectionalLight(scene);
+    return createDirectionalLight(scene,3);
   }
 }
 function createControlsForMesh(mesh:THREE.Mesh){
@@ -200,24 +312,83 @@ function createControlsForMesh(mesh:THREE.Mesh){
 function initStage(){
   const scene = createScene();
   createLights(scene,'ambient');
-  createLights(scene,'directional');
+  createSpotLight(scene,100,new THREE.Vector3(8,0,0),0xffd294)
+  if(threeObjects.lights.spot){
+    threeObjects.lights.spot.position.set(3.5,20,0)
+  }
+  // threeObjects.lights.directional = createLights(scene,'directional') as THREE.DirectionalLight;
 
-  const meshes = createMeshes(scene);
+  // 修复未使用变量的问题
+  createMeshes(scene);
   const width = window.innerWidth;
   const height = window.innerHeight;
   const camera = createCamera(width, height);
 
+  // 更新所有使用着色器的对象的uniforms
+  const updateShaderUniforms = (material: THREE.ShaderMaterial) => {
+    if (material && material.uniforms) {
+      material.uniforms.resolution.value = new THREE.Vector2(width, height);
+      material.uniforms.cameraNear.value = camera.near;
+      material.uniforms.cameraFar.value = camera.far;
+    }
+  };
+
+  const boxMat = threeObjects.materials.box as THREE.ShaderMaterial;
+  const planeMat = threeObjects.materials.plane as THREE.ShaderMaterial;
+  // const lampMat = threeObjects.materials.lamp as THREE.ShaderMaterial;
+
+  if(boxMat) updateShaderUniforms(boxMat);
+  if(planeMat) updateShaderUniforms(planeMat);
+  // if(lampMat) updateShaderUniforms(lampMat);
+
   const renderer = createRenderer(width, height);
   // renderer.render(scene, camera);
+  renderer.shadowMap.enabled = true;
+  renderer.shadowMap.type = THREE.PCFSoftShadowMap; // 使用软阴影
 
+  renderer.setAnimationLoop(() => {
+    // 处理键盘输入
+    handleKeyboardInput();
+
+    updateThreeObjects();
+    // 更新控制器
+    if (controls) {
+      controls.update();
+    }
+
+    // 更新所有着色器材质的uniforms
+    const updateShaderUniforms = (material: THREE.ShaderMaterial) => {
+      if (material && material.uniforms) {
+        material.uniforms.resolution.value = new THREE.Vector2(window.innerWidth, window.innerHeight);
+        if (camera) {
+          material.uniforms.cameraNear.value = camera.near;
+          material.uniforms.cameraFar.value = camera.far;
+        }
+      }
+    };
+
+    // 更新所有对象的着色器uniforms
+    if (threeObjects.materials.box instanceof THREE.ShaderMaterial) {
+      updateShaderUniforms(threeObjects.materials.box);
+    }
+
+    if (threeObjects.materials.plane instanceof THREE.ShaderMaterial) {
+      updateShaderUniforms(threeObjects.materials.plane);
+    }
+
+    if (scene && camera) {
+      renderer.render(scene, camera);
+    }
+  })
   document.querySelector('#three-canvas')?.appendChild(renderer.domElement);
 
   // 添加 OrbitControls
   const controls = new OrbitControls(camera, renderer.domElement);
   controls.enableDamping = true;
-  controls.dampingFactor = 0.05;
+  controls.dampingFactor = 0.09;
+  controls.zoomSpeed = 3;
   controls.screenSpacePanning = false;
-  controls.minDistance = 100;
+  controls.minDistance = 10;
   controls.maxDistance = 500;
   controls.maxPolarAngle = Math.PI / 2 - 0.1
   controls.minPolarAngle = 0
@@ -225,8 +396,8 @@ function initStage(){
 
   // 确保box mesh已经创建后再传递给createControlsForMesh
   let handleKeyboardInput = () => {}; // 默认空函数
-  if (meshes.boxMesh) {
-    handleKeyboardInput = createControlsForMesh(meshes.boxMesh);
+  if (threeObjects.meshes.box) {
+    handleKeyboardInput = createControlsForMesh(threeObjects.meshes.box);
   }
 
   window.addEventListener('resize', () => {
@@ -239,50 +410,60 @@ function initStage(){
     }
   });
 
-  /* eslint-disable-next-line */
-  const animate = () => {
-    requestAnimationFrame(animate);
-
-    // 处理键盘输入
-    handleKeyboardInput();
-
-    // 更新控制器
-    if (controls) {
-      controls.update();
-    }
-
-    if (scene && camera) {
-      renderer.render(scene, camera);
-    }
-  };
-
-  animate();
   return reactive({
-    mesh: meshes.boxMesh,
+    mesh: threeObjects.meshes.box as THREE.Mesh,
     material: threeObjects.materials.box as THREE.MeshBasicMaterial,
   });
 };
-
+function updateThreeObjects(){
+  if(threeObjects.tracker.spotTracker && threeObjects.lights.spot){
+    threeObjects.tracker.spotTracker.position.copy(threeObjects.lights.spot.position);
+  }
+};
 function initPanel(){
   /* eslint-disable-next-line */
   const gui = new GUI({title: 'Panel'});
-  const obj = {
-    color: '#ff0000',
-    speed: 2.5,
-    isVisible: false
-  }
-  //添加颜色选择器，默认色值为'#ff0000'
-  gui.addColor(obj,'color').onChange((value) => {
-    if (meshRef.value) {
-      const material = meshRef.value.mesh.material;
-      if (Array.isArray(material)) {
-        (material[0] as THREE.MeshBasicMaterial).color.set(value);
-      } else {
-        (material as THREE.MeshBasicMaterial).color.set(value);
-      }
-    }
-  });
 
+  // 材质设置文件夹
+  const materialFolder = gui.addFolder('Material Settings');
+
+  // 着色器设置文件夹
+  const shaderFolder = gui.addFolder('Shader Settings');
+  shaderFolder.close();
+
+  // 获取着色器材质
+  const boxMat = threeObjects.materials.box as THREE.ShaderMaterial;
+  const planeMat = threeObjects.materials.plane as THREE.ShaderMaterial;
+
+  if (boxMat && boxMat.uniforms) {
+    // 轮廓设置
+    shaderFolder.add(boxMat.uniforms.outlineThickness, 'value', 0, 5).name('Outline Thickness');
+    shaderFolder.addColor(boxMat.uniforms.outlineColor, 'value').name('Outline Color');
+
+    // 对象颜色设置
+    materialFolder.addColor(boxMat.uniforms.objectColor, 'value').name('Box Color').onChange((value) => {
+      if (planeMat && planeMat.uniforms) {
+        planeMat.uniforms.objectColor.value.set(value);
+      }
+    });
+
+    // 抖动效果设置
+    shaderFolder.add(boxMat.uniforms.wiggleFrequency, 'value', 0, 0.5).name('Wiggle Frequency');
+    shaderFolder.add(boxMat.uniforms.wiggleAmplitude, 'value', 0, 10).name('Wiggle Amplitude');
+  }
+
+  const spotLightFolder = gui.addFolder('Spot Light');
+  if (threeObjects.lights.spot) {
+    spotLightFolder.add(threeObjects.lights.spot, 'intensity', 0, 1000);
+    spotLightFolder.add(threeObjects.lights.spot.position, 'x', -100, 100);
+    spotLightFolder.add(threeObjects.lights.spot.position, 'y', -100, 100);
+    spotLightFolder.add(threeObjects.lights.spot.position, 'z', -100, 100);
+    spotLightFolder.addColor(threeObjects.lights.spot, 'color').onChange((value) => {
+      if (threeObjects.lights.spot) {
+        threeObjects.lights.spot.color.set(value);
+      }
+    });
+  }
 };
 
 </script>
