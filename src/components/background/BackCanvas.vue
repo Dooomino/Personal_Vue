@@ -53,8 +53,8 @@ const threeObjects = reactive({
 
 const meshRef = ref<MeshRefValue | null>(null);
 
-onMounted(() => {
-  meshRef.value = initStage();
+onMounted(async () => {
+  meshRef.value = await initStage();
   initPanel();
 })
 function resetControls() {
@@ -83,30 +83,40 @@ function createGeometries() {
 
   return { boxGeometry, planeGeometry };
 }
-function createRepeatTextures(url: string, repeat: number) {
-  // 使用相对路径引用src/assets/textures目录下的纹理文件
-  const loader = new THREE.TextureLoader();
-  const texture = loader.load(url);
-  texture.wrapS = THREE.RepeatWrapping;
-  texture.wrapT = THREE.RepeatWrapping;
-  texture.magFilter = THREE.NearestFilter;
-  texture.colorSpace = THREE.SRGBColorSpace;
-  texture.repeat.set(repeat, repeat);
-  return texture;
+function createRepeatTextures(url: string, repeat: number): Promise<THREE.Texture> {
+  // 返回一个Promise，确保纹理完全加载
+  return new Promise((resolve) => {
+    const loader = new THREE.TextureLoader();
+    const texture = loader.load(url, () => {
+      // onLoad回调，纹理加载完成后调用
+      texture.wrapS = THREE.RepeatWrapping;
+      texture.wrapT = THREE.RepeatWrapping;
+      texture.magFilter = THREE.NearestFilter;
+      texture.colorSpace = THREE.SRGBColorSpace;
+      texture.repeat.set(repeat, repeat);
+      texture.needsUpdate = true;
+      resolve(texture);
+    });
+  });
 }
 
-function loadTexture(url: string){
-  const loader = new THREE.TextureLoader();
-  const texture = loader.load(url);
-  return texture;
+function loadTexture(url: string): Promise<THREE.Texture> {
+  return new Promise((resolve) => {
+    const loader = new THREE.TextureLoader();
+    const texture = loader.load(url, () => {
+      // 纹理加载完成
+      texture.needsUpdate = true;
+      resolve(texture);
+    });
+  });
 }
 
-function createMaterials() {
+async function createMaterials() {
   // const boxMaterial = new THREE.MeshPhongMaterial({
   //   side: THREE.DoubleSide,
-  //   map: createRepeatTextures('/src/assets/textures/concrete.png', 1),
-  //   normalMap: loadTexture('/src/assets/textures/concrete-normal-map.png'),
-  //   aoMap: loadTexture('/src/assets/textures/concrete-ao-map.png'),
+  //   map: await createRepeatTextures('/src/assets/textures/concrete.png', 1),
+  //   normalMap: await loadTexture('/src/assets/textures/concrete-normal-map.png'),
+  //   aoMap: await loadTexture('/src/assets/textures/concrete-ao-map.png'),
   //   // displacementMap: loadTexture('/src/assets/textures/concrete-displacement-map.png'),
   //   // roughness : 1,
   //   // metalness:0,
@@ -127,26 +137,24 @@ function createMaterials() {
     uniforms: THREE.UniformsUtils.clone(SketchOutlineShader.uniforms),
     vertexShader: SketchOutlineShader.vertexShader,
     fragmentShader: SketchOutlineShader.fragmentShader,
-    blending: THREE.NormalBlending,
-    side: THREE.DoubleSide,
-    transparent: true
   });
 
   // 设置默认属性
   shaderMaterial.uniforms.outlineColor.value = new THREE.Color(0x333333);
   shaderMaterial.uniforms.outlineThickness.value = 1.0;
   shaderMaterial.uniforms.objectColor.value = new THREE.Color(0xcccccc); // 默认对象颜色
-
+  shaderMaterial.uniforms.tDiffuse.value = await loadTexture('/src/assets/textures/Worn_1K_BaseColor.jpg');
+  shaderMaterial.uniforms.tNormal.value = await loadTexture('/src/assets/textures/Worn_1K_Normal.jpg');
+  shaderMaterial.uniforms.tDepth.value = await loadTexture('/src/assets/textures/Worn_1K_Displacement.jpg');
   const boxMaterial = shaderMaterial.clone();
   // 为盒子设置不同的颜色
-  boxMaterial.uniforms.objectColor.value = new THREE.Color(0x4CAF50); // 绿色
 
   threeObjects.materials.box = boxMaterial;
 
   // const planeMaterial = shaderMaterial.clone();
   const planeMaterial = new THREE.MeshPhongMaterial({
     side: THREE.DoubleSide,
-    map: createRepeatTextures('/src/assets/textures/checker.png', 40),
+    map: await createRepeatTextures('/src/assets/textures/checker.png', 40),
   });
   // // 为平面设置不同的颜色
   // planeMaterial.uniforms.objectColor.value = new THREE.Color(0x9E9E9E); // 灰色
@@ -170,8 +178,9 @@ function loadGLB(url: string,scene:THREE.Scene){
       gltf.scene.scale.set(1,1,1);
       scene.add(gltf.scene);
       resolve(gltf.scene.children[0]);
-    }, (progress) => {
-      console.log(`加载进度: ${(progress.loaded / progress.total * 100).toFixed(2)}%`);
+    }, () => {
+      // progress
+      // console.debug(`加载进度: ${(progress.loaded / progress.total * 100).toFixed(2)}%`);
     }, (error) => {
       console.error('加载失败:', error);
     });
@@ -179,7 +188,7 @@ function loadGLB(url: string,scene:THREE.Scene){
 }
 async function createMeshes(scene: THREE.Scene) {
   const { boxGeometry, planeGeometry } = createGeometries();
-  const { boxMaterial, planeMaterial, lampMaterial } = createMaterials();
+  const { boxMaterial, planeMaterial, lampMaterial } = await createMaterials();
 
   const boxMesh = new THREE.Mesh(boxGeometry, boxMaterial);
   boxMesh.position.set(30, 16, 0);
@@ -273,7 +282,7 @@ function createLights(scene: THREE.Scene,type:string) {
   if(type==='ambient'){
     return createAmbientLight(scene);
   } else if (type === 'directional') {
-    return createDirectionalLight(scene,3);
+    return createDirectionalLight(scene,1);
   }
 }
 function createControlsForMesh(mesh:THREE.Mesh){
@@ -309,27 +318,30 @@ function createControlsForMesh(mesh:THREE.Mesh){
   return handleKeyboardInput;
 }
 
-function initStage(){
+async function initStage(){
   const scene = createScene();
   createLights(scene,'ambient');
   createSpotLight(scene,100,new THREE.Vector3(8,0,0),0xffd294)
   if(threeObjects.lights.spot){
     threeObjects.lights.spot.position.set(3.5,20,0)
   }
-  // threeObjects.lights.directional = createLights(scene,'directional') as THREE.DirectionalLight;
+  threeObjects.lights.directional = createLights(scene,'directional') as THREE.DirectionalLight;
 
   // 修复未使用变量的问题
-  createMeshes(scene);
+  await createMeshes(scene);
   const width = window.innerWidth;
   const height = window.innerHeight;
   const camera = createCamera(width, height);
 
   // 更新所有使用着色器的对象的uniforms
-  const updateShaderUniforms = (material: THREE.ShaderMaterial) => {
+  const updateShaderUniforms = (material: THREE.ShaderMaterial,type:string) => {
     if (material && material.uniforms) {
       material.uniforms.resolution.value = new THREE.Vector2(width, height);
       material.uniforms.cameraNear.value = camera.near;
       material.uniforms.cameraFar.value = camera.far;
+      if(type==='outline'){
+        material.uniforms.lightPosition.value = threeObjects.lights.directional?.position;
+      }
     }
   };
 
@@ -337,8 +349,8 @@ function initStage(){
   const planeMat = threeObjects.materials.plane as THREE.ShaderMaterial;
   // const lampMat = threeObjects.materials.lamp as THREE.ShaderMaterial;
 
-  if(boxMat) updateShaderUniforms(boxMat);
-  if(planeMat) updateShaderUniforms(planeMat);
+  if(boxMat) updateShaderUniforms(boxMat,'outline');
+  if(planeMat) updateShaderUniforms(planeMat,'');
   // if(lampMat) updateShaderUniforms(lampMat);
 
   const renderer = createRenderer(width, height);
@@ -419,6 +431,15 @@ function updateThreeObjects(){
   if(threeObjects.tracker.spotTracker && threeObjects.lights.spot){
     threeObjects.tracker.spotTracker.position.copy(threeObjects.lights.spot.position);
   }
+  if(threeObjects.lights.directional){
+    // rotate arond 0,0,0
+    const x = threeObjects.lights.directional.position.x;
+    const y = threeObjects.lights.directional.position.y;
+    const z = threeObjects.lights.directional.position.z;
+    threeObjects.lights.directional.position.x = x * Math.cos(0.01) - z * Math.sin(0.01);
+    threeObjects.lights.directional.position.z = x * Math.sin(0.01) + z * Math.cos(0.01);
+    threeObjects.lights.directional.lookAt(0,0,0);
+  }
 };
 function initPanel(){
   /* eslint-disable-next-line */
@@ -463,6 +484,15 @@ function initPanel(){
         threeObjects.lights.spot.color.set(value);
       }
     });
+  }
+
+  // 创建一个控制DirectionalLight文件夹
+  const directionalLightFolder = gui.addFolder('Directional Light');
+  if (threeObjects.lights.directional) {
+    directionalLightFolder.add(threeObjects.lights.directional, 'intensity', 0, 2);
+    directionalLightFolder.add(threeObjects.lights.directional.position, 'x', -100, 100);
+    directionalLightFolder.add(threeObjects.lights.directional.position, 'y', -100, 100);
+    directionalLightFolder.add(threeObjects.lights.directional.position, 'z', 0,100)
   }
 };
 
