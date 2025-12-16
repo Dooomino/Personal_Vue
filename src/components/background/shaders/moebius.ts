@@ -8,9 +8,10 @@ export const SketchOutlineShader = {
     "resolution": { value: new THREE.Vector2(1, 1) },
     "cameraNear": { value: 0.1 },
     "cameraFar": { value: 100 },
-    "outlineThickness": { value: 0.2 },
+    "cameraPosition": { value: new THREE.Vector3(0, 0, 0) },
+    "outlineThickness": { value: 1 },
     "outlineColor": { value: new THREE.Color(0x333333) },
-    "wiggleFrequency": { value: 0.008},
+    "wiggleFrequency": { value: 0.08},
     "wiggleAmplitude": { value: 1.0 },
     "objectColor": { value: new THREE.Color(0xcccccc) }, // 添加对象本身的颜色
     lightPosition: { value: new THREE.Vector3(1, 1, 1) },
@@ -19,10 +20,14 @@ export const SketchOutlineShader = {
   vertexShader: `
       varying vec2 vUv;
       varying vec3 vPosition;
+      varying vec3 vNormal;
+      out vec3 FragPos;
 
       void main() {
           vUv = uv;
           vPosition = position;
+          vNormal = normal;
+          FragPos =  vec3(modelMatrix * vec4(position, 1.0));
           gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
       }
   `,
@@ -44,6 +49,9 @@ export const SketchOutlineShader = {
       uniform vec3 lightPosition;
       varying vec2 vUv;
       varying vec3 vPosition;
+      varying vec3 vNormal;
+
+      in vec3 FragPos;
 
       // Sobel 算子 x 方向
       const mat3 Gx = mat3(
@@ -144,12 +152,20 @@ export const SketchOutlineShader = {
           // 创建抖动效果（如果启用）
           float rand = 0.0;
           vec2 displacement = vec2(0.0);
+          vec3 norm = normalize(texture2D(tNormal, uv).rgb -1.0);
+          vec3 lightDir = normalize(lightPosition - FragPos);
+          vec3 viewDir = normalize(cameraPosition - FragPos);
+
+          vec3 reflectDir = reflect(-lightDir, norm);
+          float spec = pow(max(dot(viewDir, reflectDir), 0.0), 2.0);
+          vec3 specular = spec * vec3(1.0) * 100.0;
+
           if (wiggleAmplitude > 0.0 && wiggleFrequency > 0.0) {
               rand = random(screenPos);
-              displacement = vec2(
+              displacement =  vec2(
                   rand * sin(screenPos.y * wiggleFrequency),
                   rand * cos(screenPos.x * wiggleFrequency)
-              ) * wiggleAmplitude / resolution;
+              )  ;
           }
 
           // 读取颜色和深度
@@ -157,13 +173,21 @@ export const SketchOutlineShader = {
           float depth = 0.0;
 
           // 如果提供了diffuse纹理，则使用它
-          // vec4 diffuseSample = texture2D(tDiffuse, uv);
-          // if (diffuseSample.a > 0.0) { // 有透明度说明纹理存在
-          //     color = diffuseSample.rgb;
-          // }
+          vec4 diffuseSample = texture2D(tDiffuse, uv);
+          if (diffuseSample.a > 0.0) { // 有透明度说明纹理存在
+              color = diffuseSample.rgb;
+          }
+
+          // 如果提供了深度纹理，则使用它
+          vec4 depthSample = texture2D(tDepth, uv);
+          if (depthSample.a > 0.0) { // 有透明度说明纹理存在
+              depth = depthSample.r;
+              // displacement = displacement * depth * wiggleAmplitude;
+              // displacement = vec2(1.0) * depth * wiggleAmplitude;
+          }
 
           // 默认情况下显示基本颜色
-          vec3 finalColor = vec3(1.0, 1.0, 1.0);
+          vec3 finalColor = objectColor;
 
           // 计算边缘
           float depthEdge = sobelDepth(tDepth, uv + displacement) ;
@@ -173,54 +197,55 @@ export const SketchOutlineShader = {
           float edge = depthEdge * 25.0 + normalEdge;
           edge = smoothstep(0.0, 1.0, edge);
 
-          spectralColor = lightPosition * vec3(1.0) * tNormal;
           // 素描效果 - 基于亮度的线条（仅在启用了抖动时）
-          float luma = dot(lightPosition*color, vec3(0.299, 0.587, 0.114)); // 使用内置 luminance
+          float luma = dot(specular, vec3(0.299, 0.587, 0.114)); // 使用内置 luminance
           float pattern = 0.0;
-
           if (wiggleAmplitude > 0.0 && wiggleFrequency > 0.0) {
               float modVal = 11.0;
 
               // 暗区 - 水平线条
-              if (luma <= 0.05) {
+              if (luma <= 0.2) {
                   if (mod(screenPos.y + displacement.y, modVal) < outlineThickness) {
                       pattern = 1.0;
                   }
               }
 
               // 中暗区 - 垂直线条（25%混合）
-              if (luma <= 0.1) {
+              if (luma <= 0.3) {
                   if (mod(screenPos.x + displacement.x, modVal) < outlineThickness) {
                       pattern = max(pattern, 0.25);
                   }
               }
 
               // 亮区 - 斜线条（50%混合）
-              if (luma <= 0.2) {
+              if (luma <= 0.4) {
                   if (mod(screenPos.x + displacement.x + screenPos.y + displacement.y, modVal) < outlineThickness) {
                       pattern = max(pattern, 0.5);
                   }
               }
 
               // 无 - 条（75%混合）
-              if (luma <= 0.3) {
+              if (luma <= 0.6) {
                   if (mod(screenPos.x + displacement.x - screenPos.y + displacement.y, modVal) < outlineThickness) {
                       pattern = 0.0;
                   }
               }
           }
-
           // 应用素描线条
           if (pattern > 0.0) {
-              finalColor = mix(finalColor, outlineColor, pattern);
+              finalColor = mix(finalColor, outlineColor , pattern);
           }
 
           // 应用边缘轮廓
-          // if (edge > 0.0) {
-          //     finalColor = mix(finalColor, outlineColor, edge);
-          // }
+          if (edge > 0.0) {
+              finalColor = mix(finalColor, outlineColor, edge);
+          }
 
           gl_FragColor = vec4(finalColor, 1.0);
+          // gl_FragColor = vec4(specular, 1.0);
+          // gl_FragColor = vec4(1.0 - luma,0.0,0.0, 1.0);
+          // gl_FragColor = depthSample;
+          // gl_FragColor = vec4(normalize() ,0.0, 1.0);
           // gl_FragColor = vec4(edge,1.0,1.0,1.0);
       }
   `
