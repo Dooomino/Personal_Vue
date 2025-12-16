@@ -1,7 +1,7 @@
 
 
 <template>
-  <main class="h-full w-full">
+  <main class="h-full w-full by-theme">
     <!-- 头部区域 -->
     <NavBar />
 

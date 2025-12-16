@@ -1,5 +1,5 @@
 <template>
-  <div class="navbar text-gray-800 dark:text-white w-screen h-8 px-4 fixed top-0 left-0 z-5000 flex items-center bg-light-bg dark:bg-dark-bg">
+  <div class="navbar by-theme text-gray-800 dark:text-white w-screen h-8 px-4 fixed top-0 left-0 z-5000 flex items-center bg-light-bg dark:bg-dark-bg">
     <div class="absolute right-0 top-0 !mx-4 h-full flex items-center">
       <n-switch :rail-style="railStyle" v-model:value="checked" @update:value="onUpdateChecked">
         <template #checked-icon>

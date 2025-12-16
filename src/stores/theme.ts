@@ -36,10 +36,10 @@ export const useThemeStore = defineStore('theme', {
 
       if (this.isDarkMode) {
         htmlElement.classList.add(DARK_CLASS)
-        htmlElement.style.colorScheme = THEME_DARK
+        // htmlElement.style.colorScheme = THEME_DARK
       } else {
         htmlElement.classList.remove(DARK_CLASS)
-        htmlElement.style.colorScheme = THEME_LIGHT
+        // htmlElement.style.colorScheme = THEME_LIGHT
       }
     },
 
