@@ -19,6 +19,10 @@ export const SketchOutlineShader = {
     areaLightPosition: { value: new THREE.Vector3(0, 20, 0) },
     areaLightColor: { value: new THREE.Color(0xffffff) },
     areaLightIntensity: { value: 1.0 },
+    // 添加窗户光uniforms
+    windowLightPosition: { value: new THREE.Vector3(0, 10, -15) },
+    windowLightColor: { value: new THREE.Color(0x66ccff) },
+    windowLightIntensity: { value: 1.0 },
   },
 
   vertexShader: `
@@ -55,6 +59,10 @@ export const SketchOutlineShader = {
       uniform vec3 areaLightPosition;
       uniform vec3 areaLightColor;
       uniform float areaLightIntensity;
+      // 窗户光uniforms
+      uniform vec3 windowLightPosition;
+      uniform vec3 windowLightColor;
+      uniform float windowLightIntensity;
 
       varying vec2 vUv;
       varying vec3 vPosition;
@@ -184,8 +192,17 @@ export const SketchOutlineShader = {
           float areaLightDistance = length(areaLightPosition - FragPos);
           float areaLightAttenuation = 1.0 / (1.0 + 0.1 * areaLightDistance + 0.01 * areaLightDistance * areaLightDistance);
 
-          // 结合两种光源的影响
-          vec3 totalLighting =  areaLightDiffuse * areaLightColor * areaLightIntensity * areaLightAttenuation;
+          // 窗户光计算
+          vec3 windowLightDir = normalize(windowLightPosition - FragPos);
+          float windowLightDiffuse = max(dot(norm, windowLightDir), 0.0);
+          float windowLightDistance = length(windowLightPosition - FragPos);
+          float windowLightAttenuation = 1.0 / (1.0 + 0.05 * windowLightDistance + 0.001 * windowLightDistance * windowLightDistance);
+          
+          // 结合多种光源的影响
+          vec3 totalLighting = vec3(0.0);
+          totalLighting += diffuse * vec3(1.0); // 主光源漫反射
+          totalLighting += areaLightDiffuse * areaLightColor * areaLightIntensity * areaLightAttenuation;
+          totalLighting += windowLightDiffuse * windowLightColor * windowLightIntensity * windowLightAttenuation;
 
           color *= totalLighting;
 

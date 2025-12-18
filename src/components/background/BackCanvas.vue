@@ -2,6 +2,11 @@
   <div class="w-full h-full">
     <canvas ref="canvasRef"></canvas>
   </div>
+  <div class="absolute bottom-30 right-30">
+    <button @click="test()">
+      TEST
+    </button>
+  </div>
 </template>
 <script setup lang="ts">
 import { onMounted, onUnmounted, ref } from 'vue'
@@ -71,7 +76,8 @@ class BackCanvas {
     this.controls.enableZoom = false
     this.controls.enableRotate = false
     this.controls.zoomSpeed = 1.5
-    this.camera.position.set(0, 10, 10)
+    this.camera.position.set(10, 10, 10)
+    this.camera.lookAt(-60, 10, -30)
     this.controls.update()
 
     this.stage = new Stage("stage",themeStore.isDarkMode)
@@ -154,19 +160,7 @@ async function setupStage() {
     // Room
 
     const room = await loadGLB('/src/assets/model/room.glb') as THREE.Object3D
-    // const roomGeo = new THREE.BoxGeometry(0.5, 0.5, 0.5);
     const boxColor = stage.colors["box"].getColor();
-    // const roomMat = new THREE.MeshPhysicalMaterial({
-    //   color: boxColor,
-    //   side: THREE.DoubleSide,
-    //   wireframe: false,
-    //   transparent: true,
-    //   opacity: 1,
-    //   ior: 0.9,
-    //   reflectivity: 0.8,
-    //   metalness: 0,
-    //   roughness: 1,
-    // });
     const roomMat = new THREE.ShaderMaterial({
       fragmentShader: SketchOutlineShader.fragmentShader,
       vertexShader: SketchOutlineShader.vertexShader,
@@ -178,87 +172,67 @@ async function setupStage() {
     // @ts-expect-error 缺少属性
     room.material = roomMat
 
-    // const room = new THREE.Mesh(roomGeo, roomMat);
     room.scale.set(40, 30, 30);
     room.position.set(0, 0, 0);
     room.receiveShadow = true;
     room.castShadow = true;
 
     stage.add(room, 'room');
-    // light
-    // const light = new THREE.SpotLight(0xffffff, 100.0 , 180.0, Math.PI / 6,0.8,100)
-    const light = new THREE.DirectionalLight(0xffffff, 10.0);
-    light.scale.set(10,10,10)
-    light.castShadow = true
-    light.shadow.mapSize.width = 2048;
-    light.shadow.mapSize.height = 2048;
-    light.shadow.camera.left = -50;
-    light.shadow.camera.right = 50;
-    light.shadow.camera.top = 50;
-    light.shadow.camera.bottom = -50;
-    light.shadow.camera.near = 0.5;
-    light.shadow.camera.far = 500;
-    // 启用shadow map优化
-    light.shadow.bias = -0.005;
-    light.shadow.radius = 1;
 
-    const lightObjectGeo = new THREE.SphereGeometry(1, 16, 16);
-    const lightObjectMat = new THREE.MeshBasicMaterial({
-      color: 0xffffff,
-    });
-    const lightObject = new THREE.Mesh(lightObjectGeo, lightObjectMat);
-    lightObject.castShadow = false; // 光源物体本身不需要投射阴影
-    const lightTarget = new THREE.Object3D();
-    light.position.set(-200, 5, -55)
-    lightTarget.position.set(0, 0, 0); // 将光源目标设为原点
-    light.target = lightTarget
-    lightObject.position.set(light.position.x, light.position.y, light.position.z)
-    // const lightHelper = new THREE.DirectionalLightHelper(light, 5);
-    // const dir = lightTarget.position.clone().sub(light.position).normalize()
-    // const lightDirworldHelper = new THREE.ArrowHelper(dir,light.position, 5, 0xffffff, 1);
-    const lightHelper = new THREE.DirectionalLightHelper(light);
-    stage.add(light,'light')
-    stage.add(lightObject, 'lightObject');
-    stage.add(lightTarget, 'lightTarget');
-    stage.add(lightHelper, 'lightHelper');
-    // stage.add(lightDirworldHelper, 'lightDirworldHelper');
-    // stage.add(lightHelper, 'lightHelper');
+    // 添加一个更亮的环境光，增强整体照明
+    const brightAmbientLight = new THREE.AmbientLight(0xffffff, 0.8);
+    stage.add(brightAmbientLight, 'brightAmbient');
 
-    // 将点光源替换为区域光
-    const areaLightGeometry = new THREE.PlaneGeometry(20, 20);
-    const areaLightMaterial = new THREE.MeshBasicMaterial({
-      color: 0xffffff,
-      side: THREE.DoubleSide,
-      transparent: true,
-      opacity: 0.8
-    });
-    const areaLight = new THREE.Mesh(areaLightGeometry, areaLightMaterial);
+    // 主方向光 - 模拟阳光透过窗户
+    const sunLight = new THREE.DirectionalLight(0xffffff, 8.0);
+    sunLight.castShadow = true;
+    sunLight.shadow.mapSize.width = 2048;
+    sunLight.shadow.mapSize.height = 2048;
+    sunLight.shadow.camera.left = -50;
+    sunLight.shadow.camera.right = 50;
+    sunLight.shadow.camera.top = 50;
+    sunLight.shadow.camera.bottom = -50;
+    sunLight.shadow.camera.near = 0.5;
+    sunLight.shadow.camera.far = 500;
+    sunLight.shadow.bias = -0.005;
+    sunLight.shadow.radius = 1;
 
-    // 添加一个轻微的发光效果
-    const areaLightGlowGeometry = new THREE.PlaneGeometry(25, 25);
-    const areaLightGlowMaterial = new THREE.MeshBasicMaterial({
-      color: 0xffffff,
+    // 将光源放在房间外，模拟从窗户照射进来
+    // sunLight.position.set(10, 5, 100);
+    // const sunLightTarget = new THREE.Object3D();
+    // sunLightTarget.position.set(0, 0, 0);
+    // sunLight.target = sunLightTarget;
+
+    // // 光源可视对象
+    // const sunLightObjectGeo = new THREE.SphereGeometry(2, 16, 16);
+    // const sunLightObjectMat = new THREE.MeshBasicMaterial({
+    //   color: 0xffff00,
+    // });
+    // const sunLightObject = new THREE.Mesh(sunLightObjectGeo, sunLightObjectMat);
+    // sunLightObject.position.copy(sunLight.position);
+
+    // stage.add(sunLight, 'sunLight');
+    // stage.add(sunLightTarget, 'sunLightTarget');
+    // stage.add(sunLightObject, 'sunLightObject');
+
+    // 室内补光灯，模拟室内光源
+    const indoorLight = new THREE.PointLight(0xffffff, 2.0, 100);
+    indoorLight.position.set(0, 10, 0);
+    indoorLight.castShadow = true;
+    stage.add(indoorLight, 'indoorLight');
+
+    // 添加一个轻微的发光效果表示窗户透光
+    const windowLightGeometry = new THREE.PlaneGeometry(30, 20);
+    const windowLightMaterial = new THREE.MeshBasicMaterial({
+      color: 0x66ccff,
       side: THREE.DoubleSide,
       transparent: true,
       opacity: 0.3
     });
-    const areaLightGlow = new THREE.Mesh(areaLightGlowGeometry, areaLightGlowMaterial);
-
-    // 设置区域光的位置和朝向
-    areaLight.position.set(0, 20, 0);
-    areaLight.rotation.x = -Math.PI / 2;
-    areaLightGlow.position.set(0, 20, 0);
-    areaLightGlow.rotation.x = -Math.PI / 2;
-
-    // 添加到场景中
-    stage.add(areaLight, 'areaLight');
-    stage.add(areaLightGlow, 'areaLightGlow');
-
-    // 移除原来的室内点光源
-    // const indoorLight = new THREE.PointLight(0xffffff, 50);
-    // indoorLight.position.set(0, 0, 0);
-    // stage.add(indoorLight, 'indoorLight');
-
+    const windowLight = new THREE.Mesh(windowLightGeometry, windowLightMaterial);
+    windowLight.position.set(-30, 10, 30); // 放在房间的"墙壁"位置，模拟窗户
+    windowLight.rotation.x = Math.PI / 2;
+    stage.add(windowLight, 'windowLight');
   }
 }
 
@@ -266,73 +240,51 @@ function updateStage() {
   if (backCanvasRef.value) {
     const stage = backCanvasRef.value.getStage()
     if (stage) {
-      const light = stage.get('light') as THREE.DirectionalLight
-      const lightObject = stage.get('lightObject')
-      const lightHelper = stage.get('lightHelper')as THREE.DirectionalLightHelper
-      // rotate around 0,0,0
-      if (light) {
-        // 使用更大的半径，并保持合适的高度，避免光源穿过模型
-        const radius = 200; // 增加半径使光源远离中心
-        const height = 5; // 调整高度避免穿过地面
-        const speed = 0.2; // 降低旋转速度使动画更平滑
-        light.position.x = radius * Math.sin(Date.now() / 1000 * speed)
-        light.position.y = height
-        light.position.z = radius * Math.cos(Date.now() / 1000 * speed)
-        lightHelper?.update()
-        // 更新光源目标位置，确保光照方向正确
-        if (light.target) {
-          light.target.position.set(0, 0, 0);
+      // 更新太阳光位置，模拟一天中的太阳运动
+      const sunLight = stage.get('sunLight') as THREE.DirectionalLight
+      const sunLightObject = stage.get('sunLightObject')
+
+      if (sunLight) {
+        // 太阳在天空中缓慢移动，模拟自然光照变化
+        const time = Date.now() / 10000; // 放慢时间以观察效果
+        sunLight.position.x = 100 * Math.sin(time);
+        sunLight.position.y = 50 + 30 * Math.cos(time * 0.5); // 上下移动
+        sunLight.position.z = 100 * Math.cos(time);
+
+        // 更新光源目标
+        if (sunLight.target) {
+          (sunLight.target as THREE.Object3D).position.set(0, 0, 0);
         }
 
+        // 更新光源可视化对象位置
+        sunLightObject?.position.copy(sunLight.position);
       }
 
-      // 更新区域光的位置，使其跟随主光源移动
-      const areaLight = stage.get('areaLight') as THREE.Mesh;
-      const areaLightGlow = stage.get('areaLightGlow') as THREE.Mesh;
-      if (light && areaLight && areaLightGlow) {
-        // 计算区域光应该面向的方向（朝向原点）
-        const direction = new THREE.Vector3().subVectors(
-          new THREE.Vector3(0, 0, 0),
-          new THREE.Vector3(light.position.x, light.position.y, light.position.z)
-        ).normalize();
-
-        // 设置区域光的朝向
-        areaLight.lookAt(0, 0, 0);
-        areaLightGlow.lookAt(0, 0, 0);
-
-        // 区域光的位置稍微偏离主光源，创造更好的视觉效果
-        const offset = direction.multiplyScalar(5);
-        areaLight.position.set(
-          light.position.x + offset.x,
-          light.position.y + offset.y,
-          light.position.z + offset.z
-        );
-        areaLightGlow.position.copy(areaLight.position);
-      }
-
-      lightObject?.position.copy(light?.position)
-      const ambientLight = stage.get('ambient') as THREE.AmbientLight
-      if (ambientLight) {
-        ambientLight.intensity = ambientLight.intensity * (themeStore.isDarkMode ? 0.5 : 1)
+      // 更新窗户光效的位置和强度
+      const windowLight = stage.get('windowLight') as THREE.Mesh;
+      if (windowLight) {
+        // 根据太阳位置调整窗户光效
+        const sunIntensity = Math.max(0.1, (sunLight?.position.y || 0) / 80);
+        (windowLight.material as THREE.MeshBasicMaterial).opacity = 0.2 + sunIntensity * 0.3;
       }
 
       updateUniforms()
     }
   }
-
 }
+
 function updateUniforms(){
   if (backCanvasRef.value) {
     const { camera } = backCanvasRef.value
     const stage = backCanvasRef.value.getStage()
-    const light = stage.get('light') as THREE.DirectionalLight
+    const light = stage.get('indoorLight') as THREE.DirectionalLight
     if (stage) {
       const room = stage.get('room') as THREE.Mesh
-      if(room){
+      if(room && room.material){
         const roomMat = room.material as THREE.ShaderMaterial
         roomMat.uniforms.objectColor.value = stage.colors["box"].getColor()
         roomMat.uniforms.cameraPosition.value = camera.position
-        roomMat.uniforms.lightPosition.value = light.position
+        roomMat.uniforms.lightPosition.value = light?.position || new THREE.Vector3(1, 1, 1)
         roomMat.uniforms.resolution.value = new THREE.Vector2(window.innerWidth, window.innerHeight)
         roomMat.uniforms.cameraNear.value = camera.near;
         roomMat.uniforms.cameraFar.value = camera.far;
@@ -345,12 +297,23 @@ function updateUniforms(){
           roomMat.uniforms.areaLightIntensity.value = 1.0
         }
 
+        // 更新窗户光相关的uniforms
+        const windowLight = stage.get('windowLight') as THREE.Mesh
+        if (windowLight) {
+          roomMat.uniforms.windowLightPosition.value = windowLight.position
+          roomMat.uniforms.windowLightColor.value = new THREE.Color(0x66ccff)
+          roomMat.uniforms.windowLightIntensity.value = 1.0
+        }
+
         roomMat.needsUpdate = true
       }
     }
   }
 }
+function test(){
+  console.log(backCanvasRef.value?.camera.rotation)
 
+}
 // 监听主题变化
 themeStore.$subscribe((mutation, state) => {
   if (backCanvasRef.value) {
