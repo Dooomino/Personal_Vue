@@ -15,6 +15,10 @@ export const SketchOutlineShader = {
     "wiggleAmplitude": { value: 1.0 },
     "objectColor": { value: new THREE.Color(0xcccccc) }, // 添加对象本身的颜色
     lightPosition: { value: new THREE.Vector3(1, 1, 1) },
+    // 添加区域光uniforms
+    areaLightPosition: { value: new THREE.Vector3(0, 20, 0) },
+    areaLightColor: { value: new THREE.Color(0xffffff) },
+    areaLightIntensity: { value: 1.0 },
   },
 
   vertexShader: `
@@ -47,6 +51,11 @@ export const SketchOutlineShader = {
       uniform float wiggleAmplitude;
       uniform vec3 objectColor; // 对象本身的颜色
       uniform vec3 lightPosition;
+      // 区域光uniforms
+      uniform vec3 areaLightPosition;
+      uniform vec3 areaLightColor;
+      uniform float areaLightIntensity;
+
       varying vec2 vUv;
       varying vec3 vPosition;
       varying vec3 vNormal;
@@ -152,13 +161,38 @@ export const SketchOutlineShader = {
           // 创建抖动效果（如果启用）
           float rand = 0.0;
           vec2 displacement = vec2(0.0);
-          vec3 norm = normalize(texture2D(tNormal, uv).rgb -1.0);
+          vec4 tNormalSample = texture2D(tNormal, uv);
+          vec3 norm = normalize(vNormal);
+          if (tNormalSample.a > 0.0) {
+              norm = tNormalSample.rgb;
+          }
+
+          vec3 color = objectColor; // 默认使用对象颜色
+
+          // 原有方向光计算
           vec3 lightDir = normalize(lightPosition - FragPos);
           vec3 viewDir = normalize(cameraPosition - FragPos);
-
           vec3 reflectDir = reflect(-lightDir, norm);
-          float spec = pow(max(dot(viewDir, reflectDir), 0.0), 2.0);
-          vec3 specular = spec * vec3(1.0) * 100.0;
+          float spec = pow(max(dot(viewDir, reflectDir), 0.0), 64.0);
+          vec3 specular = 100.0 * spec * vec3(1.0);
+          float diffuse = max(dot(norm, lightDir), 0.0);
+
+          // 区域光计算
+          vec3 areaLightDir = normalize(areaLightPosition - FragPos);
+          float areaLightDiffuse = max(dot(norm, areaLightDir), 0.0);
+          // 区域光衰减计算（简单的平方反比定律）
+          float areaLightDistance = length(areaLightPosition - FragPos);
+          float areaLightAttenuation = 1.0 / (1.0 + 0.1 * areaLightDistance + 0.01 * areaLightDistance * areaLightDistance);
+
+          // 结合两种光源的影响
+          vec3 totalLighting =  areaLightDiffuse * areaLightColor * areaLightIntensity * areaLightAttenuation;
+
+          color *= totalLighting;
+
+          vec4 diffuseSample = texture2D(tDiffuse, uv);
+          if (diffuseSample.a > 0.0) { // 有透明度说明纹理存在
+              color *= diffuseSample.rgb;
+          }
 
           if (wiggleAmplitude > 0.0 && wiggleFrequency > 0.0) {
               rand = random(screenPos);
@@ -169,14 +203,10 @@ export const SketchOutlineShader = {
           }
 
           // 读取颜色和深度
-          vec3 color = objectColor; // 默认使用对象颜色
           float depth = 0.0;
 
           // 如果提供了diffuse纹理，则使用它
-          vec4 diffuseSample = texture2D(tDiffuse, uv);
-          if (diffuseSample.a > 0.0) { // 有透明度说明纹理存在
-              color = diffuseSample.rgb;
-          }
+
 
           // 如果提供了深度纹理，则使用它
           vec4 depthSample = texture2D(tDepth, uv);
@@ -187,7 +217,7 @@ export const SketchOutlineShader = {
           }
 
           // 默认情况下显示基本颜色
-          vec3 finalColor = objectColor;
+          vec3 finalColor = color;
 
           // 计算边缘
           float depthEdge = sobelDepth(tDepth, uv + displacement) ;
@@ -197,43 +227,51 @@ export const SketchOutlineShader = {
           float edge = depthEdge * 25.0 + normalEdge;
           edge = smoothstep(0.0, 1.0, edge);
 
-          // 素描效果 - 基于亮度的线条（仅在启用了抖动时）
-          float luma = dot(specular, vec3(0.299, 0.587, 0.114)); // 使用内置 luminance
+          // 素描效果 - 基于亮度的点阵（替代原来的线条）
+          float luma = dot(finalColor, vec3(0.299, 0.587, 0.114)); // 使用内置 luminance
           float pattern = 0.0;
           if (wiggleAmplitude > 0.0 && wiggleFrequency > 0.0) {
               float modVal = 11.0;
 
-              // 暗区 - 水平线条
+              // 暗区 - 点阵
               if (luma <= 0.2) {
-                  if (mod(screenPos.y + displacement.y, modVal) < outlineThickness) {
+                  float gridX = mod(screenPos.x + displacement.x, modVal);
+                  float gridY = mod(screenPos.y + displacement.y, modVal);
+                  if (gridX < outlineThickness && gridY < outlineThickness) {
                       pattern = 1.0;
                   }
               }
 
-              // 中暗区 - 垂直线条（25%混合）
+              // 中暗区 - 稀疏点阵（25%混合）
               if (luma <= 0.3) {
-                  if (mod(screenPos.x + displacement.x, modVal) < outlineThickness) {
+                  float gridX = mod(screenPos.x + displacement.x, modVal);
+                  float gridY = mod(screenPos.y + displacement.y, modVal);
+                  if (gridX < outlineThickness && gridY < outlineThickness) {
                       pattern = max(pattern, 0.25);
                   }
               }
 
-              // 亮区 - 斜线条（50%混合）
+              // 亮区 - 更稀疏点阵（50%混合）
               if (luma <= 0.4) {
-                  if (mod(screenPos.x + displacement.x + screenPos.y + displacement.y, modVal) < outlineThickness) {
+                  float gridX = mod((screenPos.x + displacement.x) * 0.707 - (screenPos.y + displacement.y) * 0.707, modVal);
+                  float gridY = mod((screenPos.x + displacement.x) * 0.707 + (screenPos.y + displacement.y) * 0.707, modVal);
+                  if (gridX < outlineThickness && gridY < outlineThickness) {
                       pattern = max(pattern, 0.5);
                   }
               }
 
-              // 无 - 条（75%混合）
+              // 最亮区 - 最稀疏点阵（75%混合）
               if (luma <= 0.6) {
-                  if (mod(screenPos.x + displacement.x - screenPos.y + displacement.y, modVal) < outlineThickness) {
-                      pattern = 0.0;
+                  float gridX = mod((screenPos.x + displacement.x) * 0.707 + (screenPos.y + displacement.y) * 0.707, modVal);
+                  float gridY = mod((screenPos.x + displacement.x) * 0.707 - (screenPos.y + displacement.y) * 0.707, modVal);
+                  if (gridX < outlineThickness && gridY < outlineThickness) {
+                      pattern = max(pattern, 0.75);
                   }
               }
           }
           // 应用素描线条
           if (pattern > 0.0) {
-              finalColor = mix(finalColor, outlineColor , pattern);
+              finalColor = mix(finalColor ,vec3(0.0), pattern);
           }
 
           // 应用边缘轮廓
@@ -242,11 +280,12 @@ export const SketchOutlineShader = {
           }
 
           gl_FragColor = vec4(finalColor, 1.0);
-          // gl_FragColor = vec4(specular, 1.0);
+          // gl_FragColor = vec4(pattern,0.0,0.0, 1.0);
+          // gl_FragColor = vec4(normalize(totalLighting), 1.0);
           // gl_FragColor = vec4(1.0 - luma,0.0,0.0, 1.0);
           // gl_FragColor = depthSample;
           // gl_FragColor = vec4(normalize() ,0.0, 1.0);
-          // gl_FragColor = vec4(edge,1.0,1.0,1.0);
+          // gl_FragColor = vec4(depthEdge,1.0,1.0,1.0);
       }
   `
 };

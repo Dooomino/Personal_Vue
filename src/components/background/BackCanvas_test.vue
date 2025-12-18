@@ -148,7 +148,7 @@ async function createMaterials() {
   });
 
   // 设置默认属性
-  shaderMaterial.uniforms.outlineThickness.value = 1.0;
+  shaderMaterial.uniforms.outlineThickness.value = 10.0;
   shaderMaterial.uniforms.objectColor.value = new THREE.Color(0xffe9c7); // 默认对象颜色
   // shaderMaterial.uniforms.tDiffuse.value = await loadTexture('/src/assets/textures/Worn_1K_BaseColor.jpg');
   // shaderMaterial.uniforms.tNormal.value = await loadTexture('/src/assets/textures/Worn_1K_Normal.jpg');
