@@ -7,7 +7,7 @@ export const SketchOutlineShader = {
     "cameraNear": { value: 0.1 },
     "cameraFar": { value: 100 },
     "outlineThickness": { value: 1 },
-    "outlineColor": { value: new THREE.Color(0x333333) },
+    "outlineColor": { value: new THREE.Color(0xffffff) },
     "wiggleFrequency": { value: 0.08},
     "wiggleAmplitude": { value: 1.0 },
     "objectColor": { value: new THREE.Color(0xcccccc) }, // 添加对象本身的颜色
@@ -182,10 +182,10 @@ export const SketchOutlineShader = {
           }
 
           // 应用边缘轮廓
-          // if (edge > 0.0) {
-          //     finalColor = mix(finalColor, outlineColor, edge);
-          // }
-          finalColor = vec3(1.0 - finalColor.r, 1.0 - finalColor.g, 1.0 - finalColor.b);
+          if (edge > 0.0) {
+              finalColor = mix(finalColor, outlineColor, edge);
+          }
+          // finalColor = vec3(1.0 - finalColor.r, 1.0 - finalColor.g, 1.0 - finalColor.b);
           gl_FragColor = vec4(finalColor, 1.0);
           // gl_FragColor = vec4(outlineColor, 1.0);
           // gl_FragColor = vec4(normalize(directionalLighting), 1.0);

@@ -174,7 +174,6 @@ async function setupStage() {
       // wireframe: true,
     })
     roomMat.uniforms.outlineThickness.value = 0.5;
-    roomMat.uniforms.outlineColor.value = new THREE.Color(0xffffff);
 
     // @ts-expect-error 缺少属性
     room.material = roomMat
