@@ -1,6 +1,6 @@
 <template>
   <div class="navbar by-theme text-gray-800 dark:text-white w-screen h-16 px-4 fixed top-0 left-0 z-5000 flex items-center bg-light-bg dark:bg-dark-bg">
-    <div class="nav-bar pl-20 w-full flex items-center gap-10" style="padding-left: 2rem;">
+    <!-- <div class="nav-bar pl-20 w-full flex items-center gap-10" style="padding-left: 2rem;">
       <router-link to="/" class="text-lg font-bold">
         <img src="/src/assets/favicon-32x32.png" alt="logo" class="w-8 h-8 inline-block mr-2">
       </router-link>
@@ -13,7 +13,7 @@
       <router-link to="/blog" class="text-lg font-bold">
         <span class="no-bc">Blog</span>
       </router-link>
-    </div>
+    </div> -->
     <div class="absolute right-0 top-0 !mx-4 h-full flex items-center">
       <n-switch :rail-style="railStyle" v-model:value="checked" @update:value="onUpdateChecked">
         <template #checked-icon>

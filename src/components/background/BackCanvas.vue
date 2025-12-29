@@ -3,16 +3,22 @@
     <canvas ref="canvasRef"></canvas>
   </div>
 </template>
-<script setup lang="ts">
-import { onMounted, onUnmounted, ref } from 'vue'
+<script lang="ts">
 import * as THREE from 'three'
+const scene = new THREE.Scene()
+let camera =  {} as THREE.PerspectiveCamera;
+
+</script>
+<script setup lang="ts">
+import { getCurrentInstance, onMounted, onUnmounted, ref, type ComponentInternalInstance } from 'vue'
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js'
 import { GUI } from "three/examples/jsm/libs/lil-gui.module.min.js";
 import { DRACOLoader, GLTFLoader, OBJLoader } from 'three/examples/jsm/Addons.js';
-import { SketchOutlineShader } from './shaders/moebius';
+import MoebiusPass from './shaders/moebius';
 import { useThemeStore } from '@/stores/theme';
 import { Stage } from './entities/Stage';
 import { SimpleShader } from './shaders/simple';
+import { EffectComposer, RenderPass } from 'postprocessing';
 
 // 抽离的颜色插值工具类
 class ColorInterpolator {
@@ -20,8 +26,8 @@ class ColorInterpolator {
     // 确保 progress 在 0-1 范围内
     progress = Math.max(0, Math.min(1, progress));
 
-    // 使用 THREE.Color.lerpColors 静态方法进行插值
-    THREE.Color.lerpColors(fromColor, toColor, progress, targetColor);
+    // 使用实例方法 .copy() 和 .lerp() 进行插值
+    targetColor.copy(fromColor).lerp(toColor, progress);
   }
 
   static areColorsAlmostEqual(color1: THREE.Color, color2: THREE.Color, threshold: number = 0.001): boolean {
@@ -38,7 +44,6 @@ class ColorInterpolator {
     return Math.min(elapsed / duration, 1.0);
   }
 }
-
 class BackCanvas {
   canvas: HTMLCanvasElement
   scene: THREE.Scene
@@ -48,17 +53,21 @@ class BackCanvas {
   isDarkTheme: boolean = false
   stage: Stage
   objs: THREE.Object3D[] = []
-
+  composer: EffectComposer | null = null  // 添加composer实例
+  instance: ComponentInternalInstance | null;
   constructor(canvas: HTMLCanvasElement) {
     this.canvas = canvas
-    this.scene = new THREE.Scene()
+    this.scene = scene
     this.camera = new THREE.PerspectiveCamera(
       75,
       window.innerWidth / window.innerHeight,
       0.1,
       1000
     )
-    this.renderer = new THREE.WebGLRenderer({ canvas: this.canvas })
+    this.renderer = new THREE.WebGLRenderer({
+      canvas: this.canvas,
+      antialias: true // 启用抗锯齿以提高渲染质量
+    })
     this.renderer.setSize(window.innerWidth, window.innerHeight)
     this.renderer.setPixelRatio(window.devicePixelRatio)
     this.renderer.setClearColor(0x1e1e1e, 0)
@@ -75,9 +84,10 @@ class BackCanvas {
     this.controls.update()
     this.controls.target = new THREE.Vector3(30,3,15)
     this.stage = new Stage("stage",themeStore.isDarkMode)
-
+    camera = this.camera
+    this.instance =  (getCurrentInstance() as ComponentInternalInstance)
     this.initScene()
-    this.setStage()
+    // 移除不需要的setStage方法
   }
   toggleControls(isOn: boolean){
     this.controls.enablePan = isOn
@@ -86,42 +96,94 @@ class BackCanvas {
     this.controls.update()
   }
   initScene(){
-    const scene = this.scene
     scene.add(this.camera)
   }
   setStage(){
-    const scene = this.scene
     scene.add(this.stage.stage)
   }
+  // 移除不需要的setStage方法
   getStage(){
     return this.stage
   }
+
+  // 初始化后期处理效果
+  initPostProcessing() {
+    // 确保只初始化一次
+    if (this.composer) {
+      return;
+    }
+
+    // 创建EffectComposer时确保使用正确的参数
+    this.composer = new EffectComposer(this.renderer);
+    // 设置正确的尺寸
+    this.composer.setSize(window.innerWidth, window.innerHeight);
+    debugger
+    const renderPass = new RenderPass(scene, camera);
+    this.composer.addPass(renderPass);
+    const moebiusPass = new MoebiusPass();
+    this.composer.addPass(moebiusPass);
+  }
 }
 
-const canvasRef = ref<HTMLCanvasElement | null>(null)
-const backCanvasRef = ref<BackCanvas | null>(null)
+let then = 0;
+function updateRenderer(now: number){
+  now *= 0.001;  // convert to seconds
+  then = now;
+
+  if(backCanvasRef) {
+    const backCanvas = backCanvasRef
+    // 使用预创建的composer进行渲染
+    if (backCanvas.composer) {
+      backCanvas.composer.render();
+    } else {
+      // 如果没有后期处理，直接渲染场景
+      backCanvas.renderer.render(scene, camera);
+    }
+  }
+}
+// const canvasRef = ref<HTMLCanvasElement | null>(null)
+const canvasRef = ref<HTMLCanvasElement | null>(null);
+// const backCanvasRef = ref<BackCanvas | null>(null)
+let backCanvasRef = {} as BackCanvas;
 const themeStore = useThemeStore()
 let animationFrameId: number
 
 onMounted(() => {
   if (canvasRef.value) {
     const backCanvas = new BackCanvas(canvasRef.value)
-    backCanvasRef.value = backCanvas
+    backCanvasRef = backCanvas
 
+    // 确保初始化完成后才开始渲染
     setupStage();
+
+    // 初始化后期处理效果
+    backCanvas.initPostProcessing();
+
     // 添加动画循环
-    const animate = () => {
-      animationFrameId = requestAnimationFrame(animate)
-      updateStage()
+    const animate = (now:number) => {
+      // 更新控制器
       backCanvas.controls.update()
-      backCanvas.renderer.render(backCanvas.scene, backCanvas.camera)
+      // 更新场景
+      updateStage()
+      // 渲染场景
+      updateRenderer(now)
+
+      animationFrameId = requestAnimationFrame(animate)
     }
-    animate()
+    animationFrameId = requestAnimationFrame(animate)
+
     // 处理窗口大小调整
     const handleResize = () => {
-      backCanvas.camera.aspect = window.innerWidth / window.innerHeight
-      backCanvas.camera.updateProjectionMatrix()
-      backCanvas.renderer.setSize(window.innerWidth, window.innerHeight)
+      if(backCanvasRef) {
+        backCanvas.camera.aspect = window.innerWidth / window.innerHeight
+        backCanvas.camera.updateProjectionMatrix()
+        backCanvas.renderer.setSize(window.innerWidth, window.innerHeight)
+
+        // 如果composer存在，也需要调整大小
+        if (backCanvas.composer) {
+          backCanvas.composer.setSize(window.innerWidth, window.innerHeight);
+        }
+      }
     }
 
     window.addEventListener('resize', handleResize)
@@ -143,9 +205,9 @@ function loadGLB(url: string){
   })
 }
 async function setupStage() {
-  const stage = backCanvasRef.value?.getStage() || null
+  const stage = backCanvasRef?.getStage() || null
   // TEST
-    backCanvasRef.value?.toggleControls(true)
+    backCanvasRef?.toggleControls(true)
   if(stage){
     const ambientLight = new THREE.AmbientLight(0xffffff, 0.5);
     stage.add(ambientLight,'ambient');
@@ -156,24 +218,24 @@ async function setupStage() {
     const room = await loadGLB('/src/assets/model/room.glb') as THREE.Object3D
     // const roomGeo = new THREE.BoxGeometry(0.5, 0.5, 0.5);
     const boxColor = stage.colors["room"].getColor();
-    // const roomMat = new THREE.MeshPhysicalMaterial({
-    //   color: boxColor,
-    //   side: THREE.DoubleSide,
-    //   wireframe: false,
-    //   transparent: true,
-    //   opacity: 1,
-    //   ior: 0.9,
-    //   reflectivity: 0.8,
-    //   metalness: 0,
-    //   roughness: 1,
-    // });
-    const roomMat = new THREE.ShaderMaterial({
-      fragmentShader: SketchOutlineShader.fragmentShader,
-      vertexShader: SketchOutlineShader.vertexShader,
-      uniforms: SketchOutlineShader.uniforms,
-      // wireframe: true,
-    })
-    roomMat.uniforms.outlineThickness.value = 0.5;
+    const roomMat = new THREE.MeshPhysicalMaterial({
+      color: boxColor,
+      side: THREE.DoubleSide,
+      wireframe: false,
+      transparent: true,
+      opacity: 1,
+      ior: 0.9,
+      reflectivity: 0.8,
+      metalness: 0.3,
+      roughness: 0.7,
+    });
+    // const roomMat = new THREE.ShaderMaterial({
+    //   fragmentShader: SketchOutlineShader.fragmentShader,
+    //   vertexShader: SketchOutlineShader.vertexShader,
+    //   uniforms: SketchOutlineShader.uniforms,
+    //   // wireframe: true,
+    // })
+    // roomMat.uniforms.outlineThickness.value = 0.5;
 
     // @ts-expect-error 缺少属性
     room.material = roomMat
@@ -241,10 +303,9 @@ async function setupStage() {
   }
   setUpGUI()
 }
-
 function updateStage() {
-  if (backCanvasRef.value) {
-    const stage = backCanvasRef.value.getStage()
+  if (backCanvasRef) {
+    const stage = backCanvasRef.getStage()
     if (stage) {
       // 更新所有颜色的过渡
       stage.updateColors()
@@ -280,38 +341,36 @@ function updateStage() {
 
 }
 function updateUniforms(){
-  if (backCanvasRef.value) {
-    const { camera } = backCanvasRef.value
-    const stage = backCanvasRef.value.getStage()
-    const light = stage.get('light') as THREE.DirectionalLight
+  if (backCanvasRef) {
+    const stage = backCanvasRef.getStage()
     if (stage) {
       const room = stage.get('room') as THREE.Mesh
       if(room){
-        const roomMat = room.material as THREE.ShaderMaterial
-        roomMat.uniforms.objectColor.value = stage.colors["room"].getColor()
+        // const roomMat = room.material as THREE.ShaderMaterial
+        // roomMat.uniforms.objectColor.value = stage.colors["room"].getColor()
 
-        roomMat.uniforms.lightPosition.value = light.position
-        roomMat.uniforms.resolution.value = new THREE.Vector2(window.innerWidth, window.innerHeight)
-        roomMat.uniforms.cameraNear.value = camera.near;
-        roomMat.uniforms.cameraFar.value = camera.far;
+        // roomMat.uniforms.lightPosition.value = light.position
+        // roomMat.uniforms.resolution.value = new THREE.Vector2(window.innerWidth, window.innerHeight)
+        // roomMat.uniforms.cameraNear.value = camera.near;
+        // roomMat.uniforms.cameraFar.value = camera.far;
+        // roomMat.needsUpdate = true
+
 
         // 更新区域光相关的uniforms
         const areaLight = stage.get('areaLight') as THREE.Mesh
         if (areaLight) {
 
         }
-
-        roomMat.needsUpdate = true
       }
     }
   }
 }
 function setUpGUI(){
   const gui = new GUI();
-  const stage = backCanvasRef.value?.getStage() || null
+  const stage = backCanvasRef?.getStage() || null
   const marker = new THREE.Mesh(new THREE.BoxGeometry(1, 1, 1), new THREE.MeshBasicMaterial({ color: 0xffffff }));
   stage?.add(marker,"marker")
-  const controller = backCanvasRef.value?.controls as OrbitControls
+  const controller = backCanvasRef?.controls as OrbitControls
   if(controller){
     controller.target = marker.position
   }
@@ -319,9 +378,12 @@ function setUpGUI(){
   gui.domElement.style.position = 'absolute';
   gui.domElement.style.top = '4rem';
   const markerFolder = gui.addFolder('Marker');
-  markerFolder.add(stage?.get("marker")?.position , "x", -100,100,0.01);
-  markerFolder.add(stage?.get("marker")?.position , "y", -100,100,0.01);
-  markerFolder.add(stage?.get("marker")?.position , "z", -100,100,0.01);
+  const markerPosition = stage?.get("marker")?.position;
+  if(markerPosition) {
+    markerFolder.add(markerPosition, "x", -100,100,0.01);
+    markerFolder.add(markerPosition, "y", -100,100,0.01);
+    markerFolder.add(markerPosition, "z", -100,100,0.01);
+  }
 
   const dirLight = stage?.get("light")
   if (dirLight) {
@@ -332,7 +394,7 @@ function setUpGUI(){
     dirLightFolder.add(dirLight.rotation, 'x', -Math.PI,Math.PI,0.01);
     dirLightFolder.add(dirLight.rotation, 'y', -Math.PI,Math.PI,0.01);
     dirLightFolder.add(dirLight.rotation, 'z', -Math.PI,Math.PI,0.01);
-    dirLightFolder.add(dirLight,'intensity', 0)
+    dirLightFolder.add((dirLight as any), 'intensity', 0, 2);
   }
 
   const shadersFolder = gui.addFolder('Shaders');
@@ -345,10 +407,10 @@ function setUpGUI(){
 }
 // 监听主题变化
 themeStore.$subscribe((mutation, state) => {
-  if (backCanvasRef.value) {
-    backCanvasRef.value.isDarkTheme = state.isDarkMode
+  if (backCanvasRef) {
+    backCanvasRef.isDarkTheme = state.isDarkMode
     // 切换Stage中的所有颜色
-    const stage = backCanvasRef.value.getStage()
+    const stage = backCanvasRef.getStage()
     if (stage) {
       stage.switchTheme(state.isDarkMode)
       // 更新已存在的对象的颜色
@@ -365,7 +427,7 @@ function updateStageObjectsColor(stage: Stage) {
     const boxColor = stage.colors["room"]?.getColor()
     if (boxColor) {
       materials.forEach(mat => {
-        if (mat && mat instanceof THREE.MeshBasicMaterial) {
+        if (mat && mat instanceof THREE.MeshPhysicalMaterial) {  // 修复：应该是MeshPhysicalMaterial而不是MeshBasicMaterial
           mat.color.copy(boxColor)
         }
       })
@@ -376,6 +438,16 @@ function updateStageObjectsColor(stage: Stage) {
 onUnmounted(() => {
   if (animationFrameId) {
     cancelAnimationFrame(animationFrameId)
+  }
+
+  // 清理资源
+  if (backCanvasRef) {
+    if (backCanvasRef.composer) {
+      backCanvasRef.composer.dispose();
+    }
+
+    // 清理renderer
+    backCanvasRef.renderer.dispose();
   }
 })
 </script>
