@@ -10,7 +10,7 @@ let camera =  {} as THREE.PerspectiveCamera;
 
 </script>
 <script setup lang="ts">
-import { getCurrentInstance, onMounted, onUnmounted, ref, type ComponentInternalInstance } from 'vue'
+import { getCurrentInstance, onMounted, onUnmounted, ref, shallowRef, type ComponentInternalInstance } from 'vue'
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js'
 import { GUI } from "three/examples/jsm/libs/lil-gui.module.min.js";
 import { DRACOLoader, GLTFLoader, OBJLoader } from 'three/examples/jsm/Addons.js';
@@ -117,7 +117,6 @@ class BackCanvas {
     this.composer = new EffectComposer(this.renderer);
     // 设置正确的尺寸
     this.composer.setSize(window.innerWidth, window.innerHeight);
-    debugger
     const renderPass = new RenderPass(scene, camera);
     this.composer.addPass(renderPass);
     const moebiusPass = new MoebiusPass();
@@ -130,8 +129,8 @@ function updateRenderer(now: number){
   now *= 0.001;  // convert to seconds
   then = now;
 
-  if(backCanvasRef) {
-    const backCanvas = backCanvasRef
+  if(backCanvasRef.value) {
+    const backCanvas = backCanvasRef.value
     // 使用预创建的composer进行渲染
     if (backCanvas.composer) {
       backCanvas.composer.render();
@@ -141,17 +140,15 @@ function updateRenderer(now: number){
     }
   }
 }
-// const canvasRef = ref<HTMLCanvasElement | null>(null)
-const canvasRef = ref<HTMLCanvasElement | null>(null);
-// const backCanvasRef = ref<BackCanvas | null>(null)
-let backCanvasRef = {} as BackCanvas;
+const canvasRef = ref<HTMLCanvasElement | null>(null)
+const backCanvasRef = shallowRef<BackCanvas | null>(null)
+const animationFrameIdRef = shallowRef<number | null>(null)
 const themeStore = useThemeStore()
-let animationFrameId: number
 
 onMounted(() => {
   if (canvasRef.value) {
     const backCanvas = new BackCanvas(canvasRef.value)
-    backCanvasRef = backCanvas
+    backCanvasRef.value = backCanvas
 
     // 确保初始化完成后才开始渲染
     setupStage();
@@ -168,13 +165,13 @@ onMounted(() => {
       // 渲染场景
       updateRenderer(now)
 
-      animationFrameId = requestAnimationFrame(animate)
+      animationFrameIdRef.value = requestAnimationFrame(animate)
     }
-    animationFrameId = requestAnimationFrame(animate)
+    animationFrameIdRef.value = requestAnimationFrame(animate)
 
     // 处理窗口大小调整
     const handleResize = () => {
-      if(backCanvasRef) {
+      if(backCanvasRef.value) {
         backCanvas.camera.aspect = window.innerWidth / window.innerHeight
         backCanvas.camera.updateProjectionMatrix()
         backCanvas.renderer.setSize(window.innerWidth, window.innerHeight)
@@ -205,9 +202,9 @@ function loadGLB(url: string){
   })
 }
 async function setupStage() {
-  const stage = backCanvasRef?.getStage() || null
+  const stage = backCanvasRef.value?.getStage() || null
   // TEST
-    backCanvasRef?.toggleControls(true)
+    backCanvasRef.value?.toggleControls(true)
   if(stage){
     const ambientLight = new THREE.AmbientLight(0xffffff, 0.5);
     stage.add(ambientLight,'ambient');
@@ -304,8 +301,8 @@ async function setupStage() {
   setUpGUI()
 }
 function updateStage() {
-  if (backCanvasRef) {
-    const stage = backCanvasRef.getStage()
+  if (backCanvasRef.value) {
+    const stage = backCanvasRef.value.getStage()
     if (stage) {
       // 更新所有颜色的过渡
       stage.updateColors()
@@ -341,8 +338,8 @@ function updateStage() {
 
 }
 function updateUniforms(){
-  if (backCanvasRef) {
-    const stage = backCanvasRef.getStage()
+  if (backCanvasRef.value) {
+    const stage = backCanvasRef.value.getStage()
     if (stage) {
       const room = stage.get('room') as THREE.Mesh
       if(room){
@@ -367,10 +364,10 @@ function updateUniforms(){
 }
 function setUpGUI(){
   const gui = new GUI();
-  const stage = backCanvasRef?.getStage() || null
+  const stage = backCanvasRef.value?.getStage() || null
   const marker = new THREE.Mesh(new THREE.BoxGeometry(1, 1, 1), new THREE.MeshBasicMaterial({ color: 0xffffff }));
   stage?.add(marker,"marker")
-  const controller = backCanvasRef?.controls as OrbitControls
+  const controller = backCanvasRef.value?.controls as OrbitControls
   if(controller){
     controller.target = marker.position
   }
@@ -407,10 +404,10 @@ function setUpGUI(){
 }
 // 监听主题变化
 themeStore.$subscribe((mutation, state) => {
-  if (backCanvasRef) {
-    backCanvasRef.isDarkTheme = state.isDarkMode
+  if (backCanvasRef.value) {
+    backCanvasRef.value.isDarkTheme = state.isDarkMode
     // 切换Stage中的所有颜色
-    const stage = backCanvasRef.getStage()
+    const stage = backCanvasRef.value.getStage()
     if (stage) {
       stage.switchTheme(state.isDarkMode)
       // 更新已存在的对象的颜色
@@ -436,18 +433,18 @@ function updateStageObjectsColor(stage: Stage) {
 }
 
 onUnmounted(() => {
-  if (animationFrameId) {
-    cancelAnimationFrame(animationFrameId)
+  if (animationFrameIdRef.value) {
+    cancelAnimationFrame(animationFrameIdRef.value)
   }
 
   // 清理资源
-  if (backCanvasRef) {
-    if (backCanvasRef.composer) {
-      backCanvasRef.composer.dispose();
+  if (backCanvasRef.value) {
+    if (backCanvasRef.value.composer) {
+      backCanvasRef.value.composer.dispose();
     }
 
     // 清理renderer
-    backCanvasRef.renderer.dispose();
+    backCanvasRef.value.renderer.dispose();
   }
 })
 </script>
