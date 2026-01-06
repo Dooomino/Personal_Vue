@@ -4,15 +4,21 @@
   </div>
 </template>
 <script setup lang="ts">
-import { onMounted, onUnmounted, ref } from 'vue'
+import { onMounted, onUnmounted, shallowRef } from 'vue'  // 修改这里，使用shallowRef
 import * as THREE from 'three'
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js'
 import { GUI } from "three/examples/jsm/libs/lil-gui.module.min.js";
-import { DRACOLoader, GLTFLoader, OBJLoader } from 'three/examples/jsm/Addons.js';
-import { SketchOutlineShader } from './shaders/moebius';
+import {
+  DRACOLoader,
+  GLTFLoader,
+  OutlinePass,
+  EffectComposer,
+  RenderPass,
+  ShaderPass
+} from 'three/examples/jsm/Addons.js';
+import { CopyShader } from 'three/examples/jsm/shaders/CopyShader.js';
 import { useThemeStore } from '@/stores/theme';
 import { Stage } from './entities/Stage';
-import { SimpleShader } from './shaders/simple';
 
 // 抽离的颜色插值工具类
 class ColorInterpolator {
@@ -39,6 +45,66 @@ class ColorInterpolator {
   }
 }
 
+// 创建一个更通用的数值插值工具类，使用Three.js内置方法
+class NumericInterpolator {
+  // 使用 Three.js 的内置插值方法
+  static interpolate(fromValue: number, toValue: number, progress: number): number {
+    // 确保 progress 在 0-1 范围内
+    progress = Math.max(0, Math.min(1, progress));
+
+    // 使用 THREE.MathUtils.lerp 方法进行插值
+    return THREE.MathUtils.lerp(fromValue, toValue, progress);
+  }
+
+  static calculateProgress(startTime: number, currentTime: number, duration: number): number {
+    const elapsed = (currentTime - startTime) / 1000; // 转换为秒
+    return Math.min(elapsed / duration, 1.0);
+  }
+
+  // 创建一个随时间平滑变化的数值插值函数
+  static createInterpolation(
+    initialValue: number,
+    targetValue: number,
+    duration: number,
+    onUpdate: (value: number) => void,
+    onComplete?: () => void
+  ): void {
+    const startTime = performance.now();
+    const fromValue = initialValue;
+
+    const interpolateStep = () => {
+      const currentTime = performance.now();
+      const progress = NumericInterpolator.calculateProgress(
+        startTime,
+        currentTime,
+        duration
+      );
+
+      const currentValue = NumericInterpolator.interpolate(
+        fromValue,
+        targetValue,
+        progress
+      );
+
+      onUpdate(currentValue);
+
+      // 如果插值未完成，继续下一帧
+      if (progress < 1.0) {
+        requestAnimationFrame(interpolateStep);
+      } else {
+        // 确保最终值是精确的目标值
+        onUpdate(targetValue);
+        if (onComplete) {
+          onComplete();
+        }
+      }
+    };
+
+    // 开始插值
+    interpolateStep();
+  }
+}
+
 class BackCanvas {
   canvas: HTMLCanvasElement
   scene: THREE.Scene
@@ -48,6 +114,7 @@ class BackCanvas {
   isDarkTheme: boolean = false
   stage: Stage
   objs: THREE.Object3D[] = []
+  composer: EffectComposer | null = null  // 添加composer实例
 
   constructor(canvas: HTMLCanvasElement) {
     this.canvas = canvas
@@ -58,20 +125,27 @@ class BackCanvas {
       0.1,
       1000
     )
-    this.renderer = new THREE.WebGLRenderer({ canvas: this.canvas })
-    this.renderer.setSize(window.innerWidth, window.innerHeight)
-    this.renderer.setPixelRatio(window.devicePixelRatio)
-    this.renderer.setClearColor(0x1e1e1e, 0)
-    this.renderer.shadowMap.enabled = true
+    // 启用阴影映射以支持深度信息
+    this.renderer = new THREE.WebGLRenderer({
+      canvas: this.canvas,
+      logarithmicDepthBuffer: true
+    });
+    this.renderer.setSize(window.innerWidth, window.innerHeight);
+    this.renderer.setPixelRatio(window.devicePixelRatio);
+    this.renderer.setClearColor(0x1e1e1e, 0);
+    this.renderer.shadowMap.enabled = true;
     // 使用更好的阴影类型
     this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    // 重要：启用physicallyCorrectLights以获得更好的光照效果
+    this.renderer.physicallyCorrectLights = true
+
     this.controls = new OrbitControls(this.camera, this.renderer.domElement)
     this.controls.enableDamping = true
     this.controls.enablePan = false
     this.controls.enableZoom = false
     this.controls.enableRotate = false
     this.controls.zoomSpeed = 1.5
-    this.camera.position.set(0, 5, -20)
+    this.camera.position.set(22, 10, -20)
     this.controls.update()
     this.controls.target = new THREE.Vector3(30,3,15)
     this.stage = new Stage("stage",themeStore.isDarkMode)
@@ -96,11 +170,49 @@ class BackCanvas {
   getStage(){
     return this.stage
   }
+
+  // 初始化后期处理效果
+  initPostProcessing() {
+    // 使用Three.js自带的EffectComposer
+    this.composer = new EffectComposer(this.renderer);
+    this.composer.setSize(window.innerWidth, window.innerHeight);
+
+    // 添加渲染通道
+    const renderPass = new RenderPass(this.scene, this.camera);
+    this.composer.addPass(renderPass);
+
+    // 创建轮廓通道 - 使用正确的selectedObjects格式
+    const outlinePass = new OutlinePass(
+      new THREE.Vector2(window.innerWidth, window.innerHeight),
+      this.scene,
+      this.camera
+    );
+    outlinePass.edgeStrength = 10;      // 轮廓强度
+    outlinePass.edgeGlow = 0.5;         // 轮廓辉光
+    outlinePass.edgeThickness = 1.0;    // 轮廓厚度
+    outlinePass.pulsePeriod = 0;        // 脉冲周期
+    outlinePass.visibleEdgeColor.set(0x1e1e1e);  // 可见边缘颜色
+
+    // 设置要突出显示的对象 - 需要注意selectedObjects需要是Object3D数组
+    // 确保在设置selectedObjects时stage.children已经添加了对象
+
+    outlinePass.selectedObjects = this.stage.stage.children.length > 0 ?
+      this.stage.stage.children.filter((i) => i.isMesh) : [this.stage.stage];
+
+    this.composer.addPass(outlinePass);
+
+    // 设置最后一个通道渲染到屏幕
+    const copyPass = new ShaderPass(CopyShader);
+    copyPass.renderToScreen = true;
+    this.composer.addPass(copyPass);
+  }
 }
 
-const canvasRef = ref<HTMLCanvasElement | null>(null)
-const backCanvasRef = ref<BackCanvas | null>(null)
+const canvasRef = shallowRef<HTMLCanvasElement | null>(null)
+const backCanvasRef = shallowRef<BackCanvas | null>(null)
+const guiRef = shallowRef<GUI | null>(null) // 新增：使用 shallowRef 管理 GUI 实例
 const themeStore = useThemeStore()
+const isStartUp = shallowRef(false)
 let animationFrameId: number
 
 onMounted(() => {
@@ -108,13 +220,24 @@ onMounted(() => {
     const backCanvas = new BackCanvas(canvasRef.value)
     backCanvasRef.value = backCanvas
 
-    setupStage();
+    setupStage().then(()=>{
+      startUpStage()
+    });
+
+
     // 添加动画循环
     const animate = () => {
       animationFrameId = requestAnimationFrame(animate)
+      if(isStartUp.value) return
       updateStage()
       backCanvas.controls.update()
-      backCanvas.renderer.render(backCanvas.scene, backCanvas.camera)
+
+      // 使用EffectComposer进行渲染
+      if(backCanvas.composer) {
+        backCanvas.composer.render();
+      } else {
+        backCanvas.renderer.render(backCanvas.scene, backCanvas.camera)
+      }
     }
     animate()
     // 处理窗口大小调整
@@ -122,6 +245,10 @@ onMounted(() => {
       backCanvas.camera.aspect = window.innerWidth / window.innerHeight
       backCanvas.camera.updateProjectionMatrix()
       backCanvas.renderer.setSize(window.innerWidth, window.innerHeight)
+      // 同时更新composer的尺寸
+      if(backCanvas.composer) {
+        backCanvas.composer.setSize(window.innerWidth, window.innerHeight)
+      }
     }
 
     window.addEventListener('resize', handleResize)
@@ -142,114 +269,158 @@ function loadGLB(url: string){
     });
   })
 }
-async function setupStage() {
-  const stage = backCanvasRef.value?.getStage() || null
-  // TEST
-    backCanvasRef.value?.toggleControls(true)
-  if(stage){
-    const ambientLight = new THREE.AmbientLight(0xffffff, 0.5);
-    stage.add(ambientLight,'ambient');
+function setupStage() {
+  return new Promise(async (resolve) => {
+    const stage = backCanvasRef.value?.getStage() || null
+    // TEST
+      backCanvasRef.value?.toggleControls(true)
+    if(stage){
+      const ambientLight = new THREE.AmbientLight(0xffffff, 0.6); // 提高环境光强度，提供更亮的基础照明
+      stage.add(ambientLight,'ambient');
 
-    stage.addColorPair("room", 0x020D45,0x0730FF)
-    // Room
+      stage.addColorPair("room", 0xffffff, 0x0730FF)
+      stage.addColorPair("light", 0xee9900, 0xffffff)
+      // Room
+      // debugger
 
-    const room = await loadGLB('/src/assets/model/room.glb') as THREE.Object3D
-    // const roomGeo = new THREE.BoxGeometry(0.5, 0.5, 0.5);
-    const boxColor = stage.colors["room"].getColor();
-    // const roomMat = new THREE.MeshPhysicalMaterial({
-    //   color: boxColor,
-    //   side: THREE.DoubleSide,
-    //   wireframe: false,
-    //   transparent: true,
-    //   opacity: 1,
-    //   ior: 0.9,
-    //   reflectivity: 0.8,
-    //   metalness: 0,
-    //   roughness: 1,
-    // });
-    const roomMat = new THREE.ShaderMaterial({
-      fragmentShader: SketchOutlineShader.fragmentShader,
-      vertexShader: SketchOutlineShader.vertexShader,
-      uniforms: SketchOutlineShader.uniforms,
-      // wireframe: true,
-    })
-    roomMat.uniforms.outlineThickness.value = 0.5;
+      const room = await loadGLB('/src/assets/model/room.glb') as THREE.Object3D
+      // const roomGeo = new THREE.BoxGeometry(0.5, 0.5, 0.5);
+      const boxColor = stage.getColorPair("room")?.getColor() || new THREE.Color(0x020D45);
+      const roomMat = new THREE.MeshPhongMaterial({
+        color: boxColor,
+        shininess: 30,
+      })
+      // const roomMat = new THREE.ShaderMaterial({
+      //   fragmentShader: moebiusShader.fragmentShader,
+      //   vertexShader: moebiusShader.vertexShader,
+      //   uniforms: moebiusShader.uniforms,
+      //   // wireframe: true,
+      // })
+      // // tDiffuse
+      // // tDepth
+      // // tNormal
+      // // cameraNear
+      // // cameraFar
+      // // resolution
 
-    // @ts-expect-error 缺少属性
-    room.material = roomMat
-    // const room = new THREE.Mesh(roomGeo, roomMat);
-    room.scale.set(30, 30, 30);
-    room.position.set(0, 0, 0);
-    room.receiveShadow = true;
-    room.castShadow = true;
+      // // @ts-expect-error 缺少属性
+      room.material = roomMat
+      // const room = new THREE.Mesh(roomGeo, roomMat);
+      room.scale.set(30, 30, 30);
+      room.position.set(0, 0, 0);
+      room.receiveShadow = true;
+      room.castShadow = true;
 
-    stage.add(room, 'room');
-    stage.addMaterial( roomMat,"room")
+      stage.add(room, 'room');
+      stage.addMaterial( roomMat,"room")
 
-    const glass = new THREE.Mesh(
-      new THREE.PlaneGeometry(30, 60),
-      roomMat
-    )
+      const glass = new THREE.Mesh(
+        new THREE.PlaneGeometry(30, 60),
+        new THREE.MeshPhysicalMaterial({
+          side: THREE.DoubleSide,
+          color: 0xffffff,
+          opacity: 0.8,
+          transparent: true,
+          metalness: 0.7,
+          roughness: 0.5,
+          ior: 1.5,
+          clearcoat: 1.0,
+          transmission: 1.0,
+          thickness: 0.1,
+        })
+      )
 
-    glass.position.set(29, 12, 15);
-    glass.rotation.y = -Math.PI / 2;
-    stage.add(glass, 'glass');
-    // light
-    // const light = new THREE.SpotLight(0xffffff, 100.0 , 180.0, Math.PI / 6,0.8,100)
-    const light = new THREE.DirectionalLight(0xffffff, 1.0);
-    // light.scale.set(10,10,10)
-    light.position.set(glass.position.x+100, glass.position.y, glass.position.z)
-    light.castShadow = true
-    light.shadow.mapSize.width = 2048;
-    light.shadow.mapSize.height = 2048;
-    light.shadow.camera.left = -50;
-    light.shadow.camera.right = 50;
-    light.shadow.camera.top = 50;
-    light.shadow.camera.bottom = -50;
-    light.shadow.camera.near = 0.5;
-    light.shadow.camera.far = 500;
-    // 启用shadow map优化
-    light.shadow.bias = -0.005;
-    light.shadow.radius = 1;
+      glass.position.set(29, 0, 15);
+      glass.rotation.y = -Math.PI / 2;
+      stage.add(glass, 'glass');
+      // light
+      // const light = new THREE.SpotLight(0xffffff, 100.0 , 180.0, Math.PI / 6,0.8,100)
+      const light = new THREE.DirectionalLight(0xffffff, 0.0);
+      // light.scale.set(10,10,10)
+      light.position.set(glass.position.x+100, glass.position.y, glass.position.z)
+      light.castShadow = true
+      light.shadow.mapSize.width = 2048;
+      light.shadow.mapSize.height = 2048;
+      light.shadow.camera.left = -50;
+      light.shadow.camera.right = 50;
+      light.shadow.camera.top = 50;
+      light.shadow.camera.bottom = -50;
+      light.shadow.camera.near = 0.5;
+      light.shadow.camera.far = 500;
+      // 启用shadow map优化
+      light.shadow.bias = -0.005;
+      light.shadow.radius = 1;
 
-    const lightObjectGeo = new THREE.SphereGeometry(1, 16, 16);
-    const lightObjectMat = new THREE.MeshBasicMaterial({
-      color: 0xffffff,
-    });
-    const lightObject = new THREE.Mesh(lightObjectGeo, lightObjectMat);
-    lightObject.castShadow = false; // 光源物体本身不需要投射阴影
-    const lightTarget = new THREE.Mesh(lightObjectGeo, lightObjectMat);
-    // light.position.set(0, 5, -55)
-    lightTarget.position.set(-light.position.x,light.position.y,light.position.z);
-    light.target = lightTarget
-    lightObject.position.set(light.position.x, light.position.y, light.position.z)
-    const lightHelper = new THREE.DirectionalLightHelper(light, 5);
-    // const dir = lightTarget.position.clone().sub(light.position).normalize()
-    // const lightDirworldHelper = new THREE.ArrowHelper(dir,light.position, 5, 0xffffff, 1);
-    stage.add(light,'light')
-    stage.add(lightObject, 'lightObject');
-    stage.add(lightTarget, 'lightTarget');
-    stage.add(lightHelper, 'lightHelper');
-    // stage.add(lightDirworldHelper, 'lightDirworldHelper');
-    // stage.add(lightHelper, 'lightHelper');
+      const lightObjectGeo = new THREE.SphereGeometry(1, 16, 16);
+      const lightObjectMat = new THREE.MeshBasicMaterial({
+        color: stage.getColorPair("light")?.getColor() || new THREE.Color(0xee9900),
+      });
+      const lightObject = new THREE.Mesh(lightObjectGeo, lightObjectMat);
+      lightObject.castShadow = false; // 光源物体本身不需要投射阴影
+      const lightTarget = new THREE.Mesh(lightObjectGeo, lightObjectMat);
+      // light.position.set(0, 5, -55)
+      lightTarget.position.set(-light.position.x,light.position.y,light.position.z);
+      light.target = lightTarget
+      lightObject.position.set(light.position.x, light.position.y, light.position.z)
+      const lightHelper = new THREE.DirectionalLightHelper(light, 5);
+      // const dir = lightTarget.position.clone().sub(light.position).normalize()
+      // const lightDirworldHelper = new THREE.ArrowHelper(dir,light.position, 5, 0xffffff, 1);
+      stage.add(light,'light')
+      stage.add(lightObject, 'lightObject');
+      stage.add(lightTarget, 'lightTarget');
+      stage.add(lightHelper, 'lightHelper');
+      // stage.add(lightDirworldHelper, 'lightDirworldHelper');
+      // stage.add(lightHelper, 'lightHelper');
 
-    // 移除原来的室内点光源
-    // const indoorLight = new THREE.PointLight(0xffffff, 50);
-    // indoorLight.position.set(0, 0, 0);
-    // stage.add(indoorLight, 'indoorLight');
+      // 移除原来的室内点光源
+      // const indoorLight = new THREE.PointLight(0xffffff, 50);
+      // indoorLight.position.set(0, 0, 0);
+      // stage.add(indoorLight, 'indoorLight');
 
-  }
-  setUpGUI()
+    }
+    setUpGUI()
+
+    // 初始化后期处理效果
+    backCanvasRef.value?.initPostProcessing();
+    resolve(true)
+  })
 }
+function startUpStage(){
+  const backCanvas = backCanvasRef.value || null
+  const stage = backCanvas?.getStage()
+  const s1 = new Promise(async (resolve) => {
+  if(stage){
+    const light = stage.get('light') as THREE.DirectionalLight
 
+      if(light){
+        // 使用 NumericInterpolator 类创建光强度插值
+        NumericInterpolator.createInterpolation(
+          light.intensity, // 初始强度
+          1.0, // 目标强度
+          0.5, // 持续时间（秒）
+          (value) => {
+            light.intensity = value;
+          },
+          () => {
+            resolve(true)
+          });
+      }
+    }
+  }).finally(()=>{
+    isStartUp.value = false
+  })
+  return Promise.all([s1])
+}
 function updateStage() {
   if (backCanvasRef.value) {
     const stage = backCanvasRef.value.getStage()
+    const light = stage.get('light') as THREE.DirectionalLight
+    const ambientLight = stage.get('ambient') as THREE.AmbientLight
+    const room = stage.get('room') as THREE.Mesh
     if (stage) {
       // 更新所有颜色的过渡
       stage.updateColors()
 
-      const light = stage.get('light') as THREE.DirectionalLight
       // const lightObject = stage.get('lightObject')
       // const lightHelper = stage.get('lightHelper')as THREE.DirectionalLightHelper
       // rotate around 0,0,0
@@ -265,11 +436,19 @@ function updateStage() {
       //   if (light.target) {
       //     light.target.position.set(0, 0, 0);
       //   }
+        light.color.copy(stage.getColorPair("light")?.getColor() || new THREE.Color(0xee9900))
+      }
 
+      if(room && room.material){
+        if(room.material instanceof THREE.Material){
+          const roomColor = stage.getColorPair("room")?.getColor();
+          if(roomColor) {
+            room.material.color.copy(roomColor);
+          }
+        }
       }
 
       // lightObject?.position.copy(light?.position)
-      const ambientLight = stage.get('ambient') as THREE.AmbientLight
       if (ambientLight) {
         ambientLight.intensity = ambientLight.intensity * (themeStore.isDarkMode ? 0.5 : 1)
       }
@@ -287,13 +466,14 @@ function updateUniforms(){
     if (stage) {
       const room = stage.get('room') as THREE.Mesh
       if(room){
-        const roomMat = room.material as THREE.ShaderMaterial
-        roomMat.uniforms.objectColor.value = stage.colors["room"].getColor()
+        // const roomMat = room.material as THREE.ShaderMaterial
+        // roomMat.uniforms.objectColor.value = stage.colors["room"].getColor()
 
-        roomMat.uniforms.lightPosition.value = light.position
-        roomMat.uniforms.resolution.value = new THREE.Vector2(window.innerWidth, window.innerHeight)
-        roomMat.uniforms.cameraNear.value = camera.near;
-        roomMat.uniforms.cameraFar.value = camera.far;
+        // roomMat.uniforms.lightPosition.value = light.position
+        // roomMat.uniforms.resolution.value = new THREE.Vector2(window.innerWidth, window.innerHeight)
+        // roomMat.uniforms.cameraNear.value = camera.near;
+        // roomMat.uniforms.cameraFar.value = camera.far;
+        // roomMat.needsUpdate = true
 
         // 更新区域光相关的uniforms
         const areaLight = stage.get('areaLight') as THREE.Mesh
@@ -301,13 +481,15 @@ function updateUniforms(){
 
         }
 
-        roomMat.needsUpdate = true
       }
     }
   }
 }
 function setUpGUI(){
+  // 使用 ref 存储 GUI 实例
   const gui = new GUI();
+  guiRef.value = gui; // 将实例存入 ref
+
   const stage = backCanvasRef.value?.getStage() || null
   const marker = new THREE.Mesh(new THREE.BoxGeometry(1, 1, 1), new THREE.MeshBasicMaterial({ color: 0xffffff }));
   stage?.add(marker,"marker")
@@ -315,7 +497,7 @@ function setUpGUI(){
   if(controller){
     controller.target = marker.position
   }
-  marker.position.lerp(new THREE.Vector3(55, 5, 30),0.5)
+  marker.position.lerp(new THREE.Vector3(0,0,16),0.5)
   gui.domElement.style.position = 'absolute';
   gui.domElement.style.top = '4rem';
   const markerFolder = gui.addFolder('Marker');
@@ -356,16 +538,31 @@ themeStore.$subscribe((mutation, state) => {
     }
   }
 })
+function rgbaToHex(r, g, b, a = 1) {
+  const toHex = (x) => {
+      const value = Math.round(Math.max(0, Math.min(1, x)) * 255);
+      return value.toString(16).padStart(2, '0').toUpperCase();
+  };
 
+  const alphaHex = a === 1 ? '' : toHex(a);
+
+  return `#${toHex(r)}${toHex(g)}${toHex(b)}${alphaHex}`;
+}
+window.objToHex =(obj)=> {
+  return rgbaToHex(obj.r, obj.g, obj.b)
+}
 function updateStageObjectsColor(stage: Stage) {
   // 更新room的颜色
   const room = stage.get('room')
+
   if (room && room instanceof THREE.Mesh) {
     const materials = Array.isArray(room.material) ? room.material : [room.material]
-    const boxColor = stage.colors["room"]?.getColor()
+    const colorPair = stage.getColorPair("room");
+    const boxColor = colorPair?.getColor();
+
     if (boxColor) {
       materials.forEach(mat => {
-        if (mat && mat instanceof THREE.MeshBasicMaterial) {
+        if (mat && mat.isMaterial) {
           mat.color.copy(boxColor)
         }
       })
@@ -376,6 +573,15 @@ function updateStageObjectsColor(stage: Stage) {
 onUnmounted(() => {
   if (animationFrameId) {
     cancelAnimationFrame(animationFrameId)
+  }
+
+  // 清理资源
+  if (backCanvasRef.value?.composer) {
+    backCanvasRef.value.composer.dispose();
+  }
+  // 清理 GUI
+  if (guiRef.value) {
+    guiRef.value.destroy();
   }
 })
 </script>

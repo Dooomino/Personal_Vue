@@ -17,7 +17,7 @@ export class ColorSwitcher{
     this.initialColor = new THREE.Color(this.currentColor)
     this.targetColor = new THREE.Color(this.currentColor)
   }
-  
+
   switchColor(isDarkMode: boolean): void {
     // 设置目标颜色
     this.targetColor = isDarkMode ? this.darkColor : this.lightColor
@@ -34,23 +34,23 @@ export class ColorSwitcher{
     const currentTime = performance.now()
     const elapsed = currentTime - this.transitionStartTime
     const progress = Math.min(elapsed / this.transitionDuration, 1)
-    
+
     // 使用lerpColors方法进行颜色插值，从初始颜色到目标颜色
     this.currentColor.lerpColors(this.initialColor, this.targetColor, progress)
-    
+
     // 检查是否到达目标颜色（允许小的容差值）
     const delta = Math.sqrt(
       Math.pow(this.currentColor.r - this.targetColor.r, 2) +
       Math.pow(this.currentColor.g - this.targetColor.g, 2) +
       Math.pow(this.currentColor.b - this.targetColor.b, 2)
     );
-    
+
     if (progress >= 1 || delta < 0.001) {
       this.currentColor.copy(this.targetColor)
       this.isTransitioning = false
       return false // 表示过渡已完成
     }
-    
+
     return true // 表示仍在过渡中
   }
 
@@ -77,9 +77,9 @@ export class Stage {
     this.stage = new THREE.Object3D()
     this.stage.name = name
   }
-  addColorPair(name: string, color1:number, color2: number): void {
-    const darkColor = new THREE.Color(color1)
-    const lightColor = new THREE.Color(color2)
+  addColorPair(name: string, dark:number, light: number): void {
+    const darkColor = new THREE.Color(dark)
+    const lightColor = new THREE.Color(light)
     this.colors[name] = new ColorSwitcher(darkColor, lightColor,this.isDarkMode)
   }
   getColorPair(name: string): ColorSwitcher | null {
@@ -114,7 +114,7 @@ export class Stage {
       colorSwitcher.switchColor(isDarkMode);
     });
   }
-  
+
   updateColors(): void {
     let anyTransitioning = false;
     Object.values(this.colors).forEach(colorSwitcher => {
