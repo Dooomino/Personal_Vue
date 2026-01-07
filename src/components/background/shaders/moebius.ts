@@ -73,12 +73,20 @@ const moebiusShader = {
     vec4 normal = vec4(0.5, 0.5, 1.0, 1.0);
     vec4 pixelColor = texture2D(tDiffuse, vUv);
 
-    if (tDepth != null) {
+    // 在GLSL中，我们不能直接检查sampler2D是否为null，需要通过其他方式判断
+    // 这里我们通过检查纹理尺寸来判断纹理是否可用（无效纹理的尺寸通常为0）
+    if (textureSize(tDepth, 0).x > 1) {
       depth = readDepth(tDepth, vUv);
+    } else {
+      // 如果纹理不可用，使用默认值
+      depth = 0.9;
     }
 
-    if (tNormal != null) {
+    if (textureSize(tNormal, 0).x > 1) {
       normal = texture2D(tNormal, vUv);
+    } else {
+      // 如果纹理不可用，使用默认值
+      normal = vec4(0.5, 0.5, 1.0, 1.0);
     }
 
     float depth00 = depth;
@@ -91,7 +99,7 @@ const moebiusShader = {
     float depth21 = depth;
     float depth22 = depth;
 
-    if (tDepth != null) {
+    if (textureSize(tDepth, 0).x > 1) {
       depth00 = readDepth(tDepth, vUv + displacement + outlineThickness * texel * vec2(-1, 1));
       depth01 = readDepth(tDepth, vUv + displacement + outlineThickness * texel * vec2(-1, 0));
       depth02 = readDepth(tDepth, vUv + displacement + outlineThickness * texel * vec2(-1, -1));
@@ -125,7 +133,7 @@ const moebiusShader = {
     float normal21 = luma(normal.rgb);
     float normal22 = luma(normal.rgb);
 
-    if (tNormal != null) {
+    if (textureSize(tNormal, 0).x > 1) {
       normal00 = luma(texture2D(tNormal, vUv + displacement + outlineThickness * texel * vec2(-1, -1)).rgb);
       normal01 = luma(texture2D(tNormal, vUv + displacement + outlineThickness * texel * vec2(-1, 0)).rgb);
       normal02 = luma(texture2D(tNormal, vUv + displacement + outlineThickness * texel * vec2(-1, 1)).rgb);
@@ -216,7 +224,8 @@ const moebiusShader = {
 class MoebiusPass extends Pass {
   material: THREE.ShaderMaterial;
   fsQuad: FullScreenQuad;
-
+  isPass: boolean = true;
+  clear: boolean = false;
   constructor(options = {}) {
     super();
 
@@ -245,7 +254,11 @@ class MoebiusPass extends Pass {
     this.fsQuad.dispose();
   }
 
-  render(renderer, writeBuffer, readBuffer, deltaTime, maskActive) {
+  render(
+    renderer: THREE.WebGLRenderer,
+    writeBuffer: THREE.WebGLRenderTarget,
+    readBuffer: THREE.WebGLRenderTarget
+  ) {
     // 传递主要纹理
     this.material.uniforms.tDiffuse.value = readBuffer.texture;
 

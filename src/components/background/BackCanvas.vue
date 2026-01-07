@@ -14,11 +14,13 @@ import {
   OutlinePass,
   EffectComposer,
   RenderPass,
-  ShaderPass
+  ShaderPass,
+  OutlineEffect
 } from 'three/examples/jsm/Addons.js';
 import { CopyShader } from 'three/examples/jsm/shaders/CopyShader.js';
 import { useThemeStore } from '@/stores/theme';
 import { Stage } from './entities/Stage';
+import MoebiusPass from './shaders/moebius';
 
 // 抽离的颜色插值工具类
 class ColorInterpolator {
@@ -47,6 +49,7 @@ class ColorInterpolator {
 
 // 创建一个更通用的数值插值工具类，使用Three.js内置方法
 class NumericInterpolator {
+  static id: number = 0;
   // 使用 Three.js 的内置插值方法
   static interpolate(fromValue: number, toValue: number, progress: number): number {
     // 确保 progress 在 0-1 范围内
@@ -90,10 +93,12 @@ class NumericInterpolator {
 
       // 如果插值未完成，继续下一帧
       if (progress < 1.0) {
-        requestAnimationFrame(interpolateStep);
+        this.id = requestAnimationFrame(interpolateStep);
       } else {
         // 确保最终值是精确的目标值
         onUpdate(targetValue);
+        cancelAnimationFrame(this.id);
+        console.info(`Interpolation id:${this.id}(duration:${duration}s) completed.`);
         if (onComplete) {
           onComplete();
         }
@@ -135,9 +140,9 @@ class BackCanvas {
     this.renderer.setClearColor(0x1e1e1e, 0);
     this.renderer.shadowMap.enabled = true;
     // 使用更好的阴影类型
-    this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    // this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
     // 重要：启用physicallyCorrectLights以获得更好的光照效果
-    this.renderer.physicallyCorrectLights = true
+    // this.renderer.physicallyCorrectLights = true
 
     this.controls = new OrbitControls(this.camera, this.renderer.domElement)
     this.controls.enableDamping = true
@@ -188,11 +193,11 @@ class BackCanvas {
       this.camera
     );
     outlinePass.edgeStrength = 10;      // 轮廓强度
-    outlinePass.edgeGlow = 0.5;         // 轮廓辉光
-    outlinePass.edgeThickness = 1.0;    // 轮廓厚度
+    outlinePass.edgeGlow = 0;         // 轮廓辉光
+    outlinePass.edgeThickness = 2.0;    // 轮廓厚度
     outlinePass.pulsePeriod = 0;        // 脉冲周期
     outlinePass.visibleEdgeColor.set(0x1e1e1e);  // 可见边缘颜色
-
+    outlinePass.hiddenEdgeColor.set(0x190a05);  // 隐藏边缘颜色
     // 设置要突出显示的对象 - 需要注意selectedObjects需要是Object3D数组
     // 确保在设置selectedObjects时stage.children已经添加了对象
 
@@ -201,6 +206,8 @@ class BackCanvas {
 
     this.composer.addPass(outlinePass);
 
+    // const moebiusPass = new MoebiusPass();
+    // this.composer.addPass(moebiusPass);
     // 设置最后一个通道渲染到屏幕
     const copyPass = new ShaderPass(CopyShader);
     copyPass.renderToScreen = true;
@@ -215,31 +222,103 @@ const themeStore = useThemeStore()
 const isStartUp = shallowRef(false)
 let animationFrameId: number
 
-onMounted(() => {
+// 添加交互状态相关变量
+let lastInteractionTime = 0
+let isActive = true
+const INACTIVE_TIMEOUT = 1000 // 5秒无操作后降低帧率
+const LOW_FPS_INTERVAL = 1000 / 5 // 降低到5fps，即每200ms执行一次
+let lastFrameTime = 0
+
+onMounted(async() => {
   if (canvasRef.value) {
     const backCanvas = new BackCanvas(canvasRef.value)
     backCanvasRef.value = backCanvas
 
-    setupStage().then(()=>{
-      startUpStage()
-    });
+    // 添加交互事件监听，用于检测用户操作
+    const handleInteraction = () => {
+      lastInteractionTime = performance.now()
+      isActive = true
+    }
 
+    // 监听用户交互事件
+    window.addEventListener('mousemove', handleInteraction)
+    window.addEventListener('mousedown', handleInteraction)
+    window.addEventListener('mouseup', handleInteraction)
+    window.addEventListener('keydown', handleInteraction)
+    window.addEventListener('keyup', handleInteraction)
+    window.addEventListener('touchstart', handleInteraction)
+    window.addEventListener('touchmove', handleInteraction)
+    window.addEventListener('touchend', handleInteraction)
 
     // 添加动画循环
     const animate = () => {
       animationFrameId = requestAnimationFrame(animate)
-      if(isStartUp.value) return
-      updateStage()
-      backCanvas.controls.update()
+      // 检查是否应该渲染
+      const currentTime = performance.now()
 
-      // 使用EffectComposer进行渲染
-      if(backCanvas.composer) {
-        backCanvas.composer.render();
-      } else {
-        backCanvas.renderer.render(backCanvas.scene, backCanvas.camera)
+      // 检查是否在启动过程中
+      if(isStartUp.value) {
+        backCanvas.controls.update()
+        if(backCanvas.composer) {
+          backCanvas.composer.render();
+        } else {
+          backCanvas.renderer.render(backCanvas.scene, backCanvas.camera)
+        }
+        return
+      }
+
+      // 检查是否处于颜色过渡状态（主题切换等）
+      const stage = backCanvas.getStage()
+      let hasTransitioningColors = false
+      if (stage) {
+        hasTransitioningColors = Object.values(stage.colors).some(colorSwitcher => colorSwitcher.isTransitioning)
+      }
+
+      // 检查是否处于光源强度变化状态
+      const light = stage?.get('light') as THREE.DirectionalLight
+      const isLightIntensityChanging = light && Math.abs(light.intensity - (themeStore.isDarkMode ? 5.0 : 0.5)) > 0.01
+
+      // 检查是否有交互或动画需求
+      const isWithinTimeout = currentTime - lastInteractionTime < INACTIVE_TIMEOUT
+      const hasActiveAnimations = hasTransitioningColors || isLightIntensityChanging
+
+      // 判断是否需要渲染
+      if (isWithinTimeout || hasActiveAnimations) {
+        isActive = true
+
+        updateStage()
+        backCanvas.controls.update()
+
+        // 使用EffectComposer进行渲染
+        if(backCanvas.composer) {
+          backCanvas.composer.render();
+        } else {
+          backCanvas.renderer.render(backCanvas.scene, backCanvas.camera)
+        }
+      } else if (isActive) {
+        // 检查是否应该降低帧率渲染
+        if (currentTime - lastFrameTime >= LOW_FPS_INTERVAL) {
+          updateStage()
+          backCanvas.controls.update()
+
+          if(backCanvas.composer) {
+            backCanvas.composer.render();
+          } else {
+            backCanvas.renderer.render(backCanvas.scene, backCanvas.camera)
+          }
+          lastFrameTime = currentTime
+        }
+
+        // 标记当前为非活跃状态
+        isActive = false
       }
     }
-    animate()
+
+    await setupStage().then(async()=>{
+      startUpStage()
+      animate()
+    });
+
     // 处理窗口大小调整
     const handleResize = () => {
       backCanvas.camera.aspect = window.innerWidth / window.innerHeight
@@ -278,17 +357,17 @@ function setupStage() {
       const ambientLight = new THREE.AmbientLight(0xffffff, 0.6); // 提高环境光强度，提供更亮的基础照明
       stage.add(ambientLight,'ambient');
 
-      stage.addColorPair("room", 0xffffff, 0x0730FF)
-      stage.addColorPair("light", 0xee9900, 0xffffff)
+      stage.addColorPair("room",0x001580,0xa77558)
       // Room
       // debugger
 
-      const room = await loadGLB('/src/assets/model/room.glb') as THREE.Object3D
+      const room = await loadGLB('/src/assets/model/room.glb') as THREE.Mesh
       // const roomGeo = new THREE.BoxGeometry(0.5, 0.5, 0.5);
       const boxColor = stage.getColorPair("room")?.getColor() || new THREE.Color(0x020D45);
       const roomMat = new THREE.MeshPhongMaterial({
         color: boxColor,
-        shininess: 30,
+        side: THREE.DoubleSide,
+        emissive: boxColor,
       })
       // const roomMat = new THREE.ShaderMaterial({
       //   fragmentShader: moebiusShader.fragmentShader,
@@ -353,7 +432,7 @@ function setupStage() {
 
       const lightObjectGeo = new THREE.SphereGeometry(1, 16, 16);
       const lightObjectMat = new THREE.MeshBasicMaterial({
-        color: stage.getColorPair("light")?.getColor() || new THREE.Color(0xee9900),
+        color: 0xffffff,
       });
       const lightObject = new THREE.Mesh(lightObjectGeo, lightObjectMat);
       lightObject.castShadow = false; // 光源物体本身不需要投射阴影
@@ -372,10 +451,11 @@ function setupStage() {
       // stage.add(lightDirworldHelper, 'lightDirworldHelper');
       // stage.add(lightHelper, 'lightHelper');
 
-      // 移除原来的室内点光源
-      // const indoorLight = new THREE.PointLight(0xffffff, 50);
+      // const indoorLight = new THREE.PointLight(0xffffff, 500,100,100);
       // indoorLight.position.set(0, 0, 0);
+      // const indoorLightHelper = new THREE.PointLightHelper(indoorLight, 5);
       // stage.add(indoorLight, 'indoorLight');
+      // stage.add(indoorLightHelper, 'indoorLightHelper');
 
     }
     setUpGUI()
@@ -396,8 +476,8 @@ function startUpStage(){
         // 使用 NumericInterpolator 类创建光强度插值
         NumericInterpolator.createInterpolation(
           light.intensity, // 初始强度
-          1.0, // 目标强度
-          0.5, // 持续时间（秒）
+          5.0, // 目标强度
+          1, // 持续时间（秒）
           (value) => {
             light.intensity = value;
           },
@@ -436,7 +516,6 @@ function updateStage() {
       //   if (light.target) {
       //     light.target.position.set(0, 0, 0);
       //   }
-        light.color.copy(stage.getColorPair("light")?.getColor() || new THREE.Color(0xee9900))
       }
 
       if(room && room.material){
@@ -444,6 +523,8 @@ function updateStage() {
           const roomColor = stage.getColorPair("room")?.getColor();
           if(roomColor) {
             room.material.color.copy(roomColor);
+            room.material.emissive.copy(roomColor);
+            room.material.needsUpdate = true
           }
         }
       }
