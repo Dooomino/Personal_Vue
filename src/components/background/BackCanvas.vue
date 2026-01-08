@@ -150,9 +150,9 @@ class BackCanvas {
     this.controls.enableZoom = false
     this.controls.enableRotate = false
     this.controls.zoomSpeed = 1.5
-    this.camera.position.set(22, 10, -20)
+    this.camera.position.set(10, 10, -20)
     this.controls.update()
-    this.controls.target = new THREE.Vector3(30,3,15)
+    this.controls.target = new THREE.Vector3(0,0,0)
     this.stage = new Stage("stage",themeStore.isDarkMode)
 
     this.initScene()
@@ -225,7 +225,7 @@ let animationFrameId: number
 // 添加交互状态相关变量
 let lastInteractionTime = 0
 let isActive = true
-const INACTIVE_TIMEOUT = 1000 // 5秒无操作后降低帧率
+const INACTIVE_TIMEOUT = 1000 // 1秒无操作后降低帧率
 const LOW_FPS_INTERVAL = 1000 / 5 // 降低到5fps，即每200ms执行一次
 let lastFrameTime = 0
 
@@ -252,7 +252,6 @@ onMounted(async() => {
 
     // 添加动画循环
     const animate = () => {
-      animationFrameId = requestAnimationFrame(animate)
       // 检查是否应该渲染
       const currentTime = performance.now()
 
@@ -312,6 +311,7 @@ onMounted(async() => {
         // 标记当前为非活跃状态
         isActive = false
       }
+      animationFrameId = requestAnimationFrame(animate)
     }
 
     await setupStage().then(async()=>{
@@ -434,20 +434,20 @@ function setupStage() {
       const lightObjectMat = new THREE.MeshBasicMaterial({
         color: 0xffffff,
       });
-      const lightObject = new THREE.Mesh(lightObjectGeo, lightObjectMat);
+      // const lightObject = new THREE.Mesh(lightObjectGeo, lightObjectMat);
+      const lightObject = new THREE.Object3D();
       lightObject.castShadow = false; // 光源物体本身不需要投射阴影
-      const lightTarget = new THREE.Mesh(lightObjectGeo, lightObjectMat);
+      // const lightTarget = new THREE.Mesh(lightObjectGeo, lightObjectMat);
+      const lightTarget = new THREE.Object3D();
       // light.position.set(0, 5, -55)
       lightTarget.position.set(-light.position.x,light.position.y,light.position.z);
       light.target = lightTarget
       lightObject.position.set(light.position.x, light.position.y, light.position.z)
-      const lightHelper = new THREE.DirectionalLightHelper(light, 5);
       // const dir = lightTarget.position.clone().sub(light.position).normalize()
       // const lightDirworldHelper = new THREE.ArrowHelper(dir,light.position, 5, 0xffffff, 1);
       stage.add(light,'light')
       stage.add(lightObject, 'lightObject');
       stage.add(lightTarget, 'lightTarget');
-      stage.add(lightHelper, 'lightHelper');
       // stage.add(lightDirworldHelper, 'lightDirworldHelper');
       // stage.add(lightHelper, 'lightHelper');
 
@@ -535,6 +535,7 @@ function updateStage() {
       }
 
       updateUniforms()
+      updateGUI()
     }
   }
 
@@ -606,6 +607,35 @@ function setUpGUI(){
     shadersFolder.addColor(color, "darkColor");
   }
 }
+
+function updateGUI(){
+  const gui = guiRef.value
+  if(gui){
+    // 更新标记的位置显示
+    const stage = backCanvasRef.value?.getStage() || null
+    if(stage){
+      // 更新标记位置
+      const marker = stage.get("marker")
+      if(marker && marker instanceof THREE.Object3D){
+        // 遍历GUI中的控制器并更新它们的值
+        gui.controllers.forEach(controller => {
+          // 如果控制器的object是marker的位置属性，则更新控制器的显示值
+          if(controller.object === marker.position){
+            // 不需要手动更新，因为Three.js的GUI会自动监听对象属性变化
+          }
+        })
+      }
+
+      // 更新灯光位置
+      const dirLight = stage.get("light")
+      if(dirLight && dirLight instanceof THREE.Light){
+        // 同样，GUI会自动更新显示值，但我们可以确保它们是最新的
+        // 如果需要强制更新，可以在这里添加相关逻辑
+      }
+    }
+  }
+}
+
 // 监听主题变化
 themeStore.$subscribe((mutation, state) => {
   if (backCanvasRef.value) {
