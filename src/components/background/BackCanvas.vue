@@ -228,7 +228,7 @@ let isActive = true
 const INACTIVE_TIMEOUT = 1000 // 1秒无操作后降低帧率
 const LOW_FPS_INTERVAL = 1000 / 5 // 降低到5fps，即每200ms执行一次
 let lastFrameTime = 0
-
+const isMouseAction = shallowRef(false)
 onMounted(async() => {
   if (canvasRef.value) {
     const backCanvas = new BackCanvas(canvasRef.value)
@@ -241,9 +241,19 @@ onMounted(async() => {
     }
 
     // 监听用户交互事件
-    window.addEventListener('mousemove', handleInteraction)
-    window.addEventListener('mousedown', handleInteraction)
-    window.addEventListener('mouseup', handleInteraction)
+    window.addEventListener('mousemove',()=>{
+      if(isMouseAction.value) {
+        handleInteraction()
+      }
+    })
+    window.addEventListener('mousedown', ()=>{
+      isMouseAction.value = true
+      handleInteraction()
+    })
+    window.addEventListener('mouseup',()=>{
+      isMouseAction.value = false
+      handleInteraction()
+    })
     window.addEventListener('keydown', handleInteraction)
     window.addEventListener('keyup', handleInteraction)
     window.addEventListener('touchstart', handleInteraction)
@@ -287,27 +297,13 @@ onMounted(async() => {
 
         updateStage()
         backCanvas.controls.update()
-
         // 使用EffectComposer进行渲染
         if(backCanvas.composer) {
           backCanvas.composer.render();
         } else {
           backCanvas.renderer.render(backCanvas.scene, backCanvas.camera)
         }
-      } else if (isActive) {
-        // 检查是否应该降低帧率渲染
-        if (currentTime - lastFrameTime >= LOW_FPS_INTERVAL) {
-          updateStage()
-          backCanvas.controls.update()
-
-          if(backCanvas.composer) {
-            backCanvas.composer.render();
-          } else {
-            backCanvas.renderer.render(backCanvas.scene, backCanvas.camera)
-          }
-          lastFrameTime = currentTime
-        }
-
+      } else{
         // 标记当前为非活跃状态
         isActive = false
       }

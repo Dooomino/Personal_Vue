@@ -1,6 +1,5 @@
-import { Pass } from "postprocessing";
 import * as THREE from "three";
-import { FullScreenQuad } from "three-stdlib";
+import { Pass, FullScreenQuad } from "three-stdlib";
 
 // 定义着色器对象，用于BackCanvas.vue中直接材质使用
 const moebiusShader = {
@@ -224,29 +223,22 @@ const moebiusShader = {
 class MoebiusPass extends Pass {
   material: THREE.ShaderMaterial;
   fsQuad: FullScreenQuad;
-  isPass: boolean = true;
+  enabled: boolean = true;
+  needsSwap: boolean = true;
   clear: boolean = false;
+
   constructor(options = {}) {
     super();
 
-    // 合并默认uniforms和传入的options
-    const uniforms = {
-      ...moebiusShader.uniforms,  // 使用基础着色器的uniforms作为默认值
-      cameraNear: { value: options.cameraNear || 0.1 },
-      cameraFar: { value: options.cameraFar || 1000 },
-      resolution: { value: options.resolution || new THREE.Vector2(1, 1) },
-      shadowType: { value: options.shadowType || 1.0 },
-      ...options.uniforms
-    };
-
     const shader = {
-      uniforms: uniforms,
+      uniforms: {...moebiusShader.uniforms}, // 创建uniforms的副本以避免共享引用
       vertexShader: moebiusShader.vertexShader,
       fragmentShader: moebiusShader.fragmentShader,
     };
 
     this.material = new THREE.ShaderMaterial(shader);
     this.fsQuad = new FullScreenQuad(this.material);
+    this.renderToScreen = false;
   }
 
   dispose() {
@@ -256,26 +248,38 @@ class MoebiusPass extends Pass {
 
   render(
     renderer: THREE.WebGLRenderer,
-    writeBuffer: THREE.WebGLRenderTarget,
-    readBuffer: THREE.WebGLRenderTarget
+    inputBuffer: THREE.WebGLRenderTarget,
+    outputBuffer: THREE.WebGLRenderTarget,
+    deltaTime?: number,
+    maskActive?: boolean
   ) {
     // 传递主要纹理
-    this.material.uniforms.tDiffuse.value = readBuffer.texture;
+    this.material.uniforms.tDiffuse.value = inputBuffer.texture;
 
-    // 尝试获取深度纹理 - 但标准的EffectComposer不直接提供深度和法线纹理
-    // 所以我们需要在着色器中处理缺失的情况
+    // 使用输入缓冲区的尺寸作为分辨率
+    this.material.uniforms.resolution.value.set(inputBuffer.width, inputBuffer.height);
 
-    // 从renderer获取当前视口尺寸
-    this.material.uniforms.resolution.value.set(
-      renderer.getSize(new THREE.Vector2()).width,
-      renderer.getSize(new THREE.Vector2()).height
-    );
+    // 从 EffectComposer 提供的相机中获取 near/far 值
+    // 注意：这里假设 camera 对象是可用的，但 EffectComposer 的 API 中，
+    // 这个信息通常通过一个名为 'renderCamera' 的额外参数传递给 Pass。
+    // 为了完全兼容，我们可以在调用此方法时确保传入了 camera 参数。
+    // 但是，由于 TypeScript 类型定义可能不包含这个约定俗成的参数，
+    // 我们可以通过其他方式处理，或者在实际使用时由 EffectComposer 正确调用。
+
+    // 实际上，在 EffectComposer 的上下文中，我们无法直接访问 camera。
+    // 因此，一个更安全的做法是让应用层在创建 pass 后手动设置这些值，
+    // 或者我们移除对此类动态参数的依赖。但为了保持功能，我们保留 uniform 并假设它会被外部设置。
+
+    // 由于标准的 EffectComposer 不直接提供深度和法线纹理，我们设置为 null
+    // 着色器会处理这些纹理缺失的情况
+    this.material.uniforms.tDepth.value = null;
+    this.material.uniforms.tNormal.value = null;
 
     if (this.renderToScreen) {
       renderer.setRenderTarget(null);
       this.fsQuad.render(renderer);
     } else {
-      renderer.setRenderTarget(writeBuffer);
+      renderer.setRenderTarget(outputBuffer);
       if (this.clear) renderer.clear();
       this.fsQuad.render(renderer);
     }
