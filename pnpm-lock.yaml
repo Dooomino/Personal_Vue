@@ -14,9 +14,6 @@ importers:
       pinia:
         specifier: ^3.0.3
         version: 3.0.3(typescript@5.8.3)(vue@3.5.22(typescript@5.8.3))
-      three:
-        specifier: ^0.180.0
-        version: 0.180.0
       vue:
         specifier: ^3.5.22
         version: 3.5.22(typescript@5.8.3)
@@ -30,6 +27,9 @@ importers:
       '@tailwindcss/vite':
         specifier: ^4.1.14
         version: 4.1.14(vite@7.1.10(@types/node@22.18.10)(jiti@2.6.1)(lightningcss@1.30.1)(yaml@2.8.1))
+      '@tresjs/core':
+        specifier: ^5.3.2
+        version: 5.3.2(three@0.180.0)(vue@3.5.22(typescript@5.8.3))
       '@tsconfig/node22':
         specifier: ^22.0.2
         version: 22.0.2
@@ -105,12 +105,18 @@ importers:
       tailwindcss:
         specifier: 4.1.14
         version: 4.1.14
+      three:
+        specifier: ^0.180.0
+        version: 0.180.0
       three-auto:
         specifier: ^0.3.3
         version: 0.3.3(three@0.180.0)
       three-stdlib:
         specifier: ^2.36.1
         version: 2.36.1(three@0.180.0)
+      tres:
+        specifier: ^0.0.0
+        version: 0.0.0
       typescript:
         specifier: ~5.8.3
         version: 5.8.3
@@ -584,6 +590,9 @@ packages:
     engines: {node: '>=18'}
     hasBin: true
 
+  '@pmndrs/pointer-events@6.6.29':
+    resolution: {integrity: sha512-o4YD6VfJgDYjFgde/YyAw2X5KY454tdmOXrHGOvKTWJBHzkL90B5vH4rqmexwRVvaDfT3YLvVh/Dm5cBbgZXMg==}
+
   '@polka/url@1.0.0-next.29':
     resolution: {integrity: sha512-wwQAWhWSuHaag8c4q/KN/vCoeOJYshAIvMQwD4GpSb3OiZklFfvAgmj0VCBBImRpuF/aFgIRzllXlVX93Jevww==}
 
@@ -826,6 +835,12 @@ packages:
     peerDependencies:
       vite: ^5.2.0 || ^6 || ^7
 
+  '@tresjs/core@5.3.2':
+    resolution: {integrity: sha512-TmR9KH/WgtoaPsUjJyGuwg78hIwtGJ7JToDqd+HRZur4Opvw4dmjYO9oBimHUw4rRqJY2nNrW/KmkpnDcRmW7A==}
+    peerDependencies:
+      three: '>=0.133'
+      vue: '>=3.4'
+
   '@tsconfig/node22@22.0.2':
     resolution: {integrity: sha512-Kmwj4u8sDRDrMYRoN9FDEcXD8UpBSaPQQ24Gz+Gamqfm7xxn+GBR7ge/Z7pK8OXNGyUzbSwJj+TH6B+DS/epyA==}
 
@@ -876,6 +891,9 @@ packages:
 
   '@types/tough-cookie@4.0.5':
     resolution: {integrity: sha512-/Ad8+nIOV7Rl++6f1BdKxFSMgmoqEoYbHRpPcx3JEfv8VRsQe9Z4mCXeJBzxs7mbHY/XOZZuXlRNfhpVPbs6ZA==}
+
+  '@types/web-bluetooth@0.0.21':
+    resolution: {integrity: sha512-oIQLCGWtcFZy2JW77j9k8nHzAOpqMHLQejDA48XXMWH6tjCQHz5RCFz1bzsmROyL6PUm+LLnUiI4BCn221inxA==}
 
   '@types/webxr@0.5.24':
     resolution: {integrity: sha512-h8fgEd/DpoS9CBrjEQXR+dIDraopAEfu4wYVNY2tEPwk60stPWhvZMf4Foo5FakuQ7HFZoa8WceaWFervK2Ovg==}
@@ -1117,6 +1135,19 @@ packages:
         optional: true
       vue:
         optional: true
+
+  '@vueuse/core@13.9.0':
+    resolution: {integrity: sha512-ts3regBQyURfCE2BcytLqzm8+MmLlo5Ln/KLoxDVcsZ2gzIwVNnQpQOL/UKV8alUqjSZOlpFZcRNsLRqj+OzyA==}
+    peerDependencies:
+      vue: ^3.5.0
+
+  '@vueuse/metadata@13.9.0':
+    resolution: {integrity: sha512-1AFRvuiGphfF7yWixZa0KwjYH8ulyjDCC0aFgrGRz8+P4kvDFSdXLVfTk5xAN9wEuD1J6z4/myMoYbnHoX07zg==}
+
+  '@vueuse/shared@13.9.0':
+    resolution: {integrity: sha512-e89uuTLMh0U5cZ9iDpEI2senqPGfbPRTHM/0AaQkcxnpqjkZqDYP8rpfm7edOz8s+pOCOROEy1PIveSW8+fL5g==}
+    peerDependencies:
+      vue: ^3.5.0
 
   '@webgpu/types@0.1.66':
     resolution: {integrity: sha512-YA2hLrwLpDsRueNDXIMqN9NTzD6bCDkuXbOSe0heS+f8YE8usA6Gbv1prj81pzVHrbaAma7zObnIC+I6/sXJgA==}
@@ -2107,6 +2138,10 @@ packages:
   queue-microtask@1.2.3:
     resolution: {integrity: sha512-NuaNSa6flKT5JaSYQzJok04JzTL1CA6aGhv5rfLW3PgqA+M2ChpZQnAC8h8i4ZFkBS8X5RqkDBHA7r4hej3K9A==}
 
+  radashi@12.7.1:
+    resolution: {integrity: sha512-rwxcGY3oKMQJ+ojhS4MlxyVWqdXPVJSxg3ZjXDYYz26DYRuAAs+7XBM406/GYzPEBbjSJqdKfHDpBRfjWn34RQ==}
+    engines: {node: '>=16.0.0'}
+
   read-package-json-fast@4.0.0:
     resolution: {integrity: sha512-qpt8EwugBWDw2cgE2W+/3oxC+KTez2uSVR8JU9Q36TXPAGCaozfQUs59v4j4GFpWTaw0i6hAZSvOmu1J0uOEUg==}
     engines: {node: ^18.17.0 || >=20.5.0}
@@ -2306,6 +2341,9 @@ packages:
 
   treemate@0.3.11:
     resolution: {integrity: sha512-M8RGFoKtZ8dF+iwJfAJTOH/SM4KluKOKRJpjCMhI8bG3qB74zrFoArKZ62ll0Fr3mqkMJiQOmWYkdYgDeITYQg==}
+
+  tres@0.0.0:
+    resolution: {integrity: sha512-865CHEgX/oaga9LkMPX0t6ymVI305yJN/m4LcT6QOLu53+j3A7WstSQf5JRmcS5rXS6xf8ic08lT1R0Nkmh/Zw==}
 
   ts-api-utils@2.1.0:
     resolution: {integrity: sha512-CUgTZL1irw8u29bzrOD/nH85jqyc74D6SshFgujOIA7osm2Rz7dYH77agkx7H4FBNxDq7Cjf+IjaX/8zwFW+ZQ==}
@@ -3028,6 +3066,8 @@ snapshots:
     dependencies:
       playwright: 1.56.0
 
+  '@pmndrs/pointer-events@6.6.29': {}
+
   '@polka/url@1.0.0-next.29': {}
 
   '@primeuix/styled@0.7.4':
@@ -3185,6 +3225,15 @@ snapshots:
       tailwindcss: 4.1.14
       vite: 7.1.10(@types/node@22.18.10)(jiti@2.6.1)(lightningcss@1.30.1)(yaml@2.8.1)
 
+  '@tresjs/core@5.3.2(three@0.180.0)(vue@3.5.22(typescript@5.8.3))':
+    dependencies:
+      '@pmndrs/pointer-events': 6.6.29
+      '@vue/devtools-api': 7.7.7
+      '@vueuse/core': 13.9.0(vue@3.5.22(typescript@5.8.3))
+      radashi: 12.7.1
+      three: 0.180.0
+      vue: 3.5.22(typescript@5.8.3)
+
   '@tsconfig/node22@22.0.2': {}
 
   '@tweenjs/tween.js@23.1.3': {}
@@ -3236,6 +3285,8 @@ snapshots:
       meshoptimizer: 0.22.0
 
   '@types/tough-cookie@4.0.5': {}
+
+  '@types/web-bluetooth@0.0.21': {}
 
   '@types/webxr@0.5.24': {}
 
@@ -3593,6 +3644,19 @@ snapshots:
   '@vue/tsconfig@0.7.0(typescript@5.8.3)(vue@3.5.22(typescript@5.8.3))':
     optionalDependencies:
       typescript: 5.8.3
+      vue: 3.5.22(typescript@5.8.3)
+
+  '@vueuse/core@13.9.0(vue@3.5.22(typescript@5.8.3))':
+    dependencies:
+      '@types/web-bluetooth': 0.0.21
+      '@vueuse/metadata': 13.9.0
+      '@vueuse/shared': 13.9.0(vue@3.5.22(typescript@5.8.3))
+      vue: 3.5.22(typescript@5.8.3)
+
+  '@vueuse/metadata@13.9.0': {}
+
+  '@vueuse/shared@13.9.0(vue@3.5.22(typescript@5.8.3))':
+    dependencies:
       vue: 3.5.22(typescript@5.8.3)
 
   '@webgpu/types@0.1.66': {}
@@ -4511,6 +4575,8 @@ snapshots:
 
   queue-microtask@1.2.3: {}
 
+  radashi@12.7.1: {}
+
   read-package-json-fast@4.0.0:
     dependencies:
       json-parse-even-better-errors: 4.0.0
@@ -4703,6 +4769,8 @@ snapshots:
       punycode: 2.3.1
 
   treemate@0.3.11: {}
+
+  tres@0.0.0: {}
 
   ts-api-utils@2.1.0(typescript@5.8.3):
     dependencies:

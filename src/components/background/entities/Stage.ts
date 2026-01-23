@@ -25,6 +25,9 @@ export class ColorSwitcher{
     this.initialColor.copy(this.currentColor)
     // 开始新的过渡
     this.isTransitioning = true
+    setTimeout(() => {
+      this.isTransitioning = false
+    }, this.transitionDuration)
     this.transitionStartTime = performance.now()
   }
 

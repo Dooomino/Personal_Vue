@@ -59,4 +59,12 @@
   .no-bc{
     background-color: transparent !important;
   }
+  .canvas-container{
+    filter: blur(0);
+    transition: all 0.3s ease-in-out;
+  }
+  .web-blur{
+    filter: blur(50px) !important;
+    transition: all 0.5s ease-in-out;
+  }
 }
