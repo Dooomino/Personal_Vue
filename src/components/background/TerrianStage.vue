@@ -28,10 +28,18 @@ const fromColor = new THREE.Color();
 const toColor = new THREE.Color();
 const currentBgColor = new THREE.Color();
 
+// 添加地形变形相关变量
+const isTerrainAnimating = ref(true);
+const terrainAnimationStart = ref<number>(0);
+const terrainAnimationDuration = 3.0; // 变形持续时间 3 秒
+const initialMorphInfluence = 0; // 初始为平面
+const targetMorphInfluence = 1; // 目标为完整地形
+
 interface GLObject{
   scene: THREE.Scene;
   lightManager: THREE.Group;
   controls: OrbitControls;
+  objects: THREE.Group;
   renderer: THREE.WebGLRenderer;
   camera: THREE.PerspectiveCamera;
 }
@@ -41,7 +49,10 @@ defineOptions({
 })
 function setupStage() {
   return new Promise(async (resolve) => {
+    const width = 50
     const genHeight = 50;
+    const lightManager = new THREE.Group();
+    const objects = new THREE.Group();
     const scene = new THREE.Scene();
     const stage = new THREE.Group();
     scene.add(stage);
@@ -52,7 +63,7 @@ function setupStage() {
       0.1,
       1000
     );
-    camera.position.set(5*genHeight,genHeight*5,1.2*genHeight);
+    camera.position.set( 0, 5, 10 );
     camera.lookAt(0,0,0);
     scene.add(camera);
     const renderer = new THREE.WebGLRenderer({
@@ -69,17 +80,27 @@ function setupStage() {
     terrainMesh.receiveShadow = true;
     stage.add(terrainMesh);
 
-    // 添加环境光，让地形更明显
-    // const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
-    // scene.add(ambientLight);
+    // 设置地形变形初始状态为平面 (0) - 这样动画会从平面变为地形
+    terrainRef().setMorphInfluence(0);
 
     // 添加方向光，增强地形的立体感
-    const directionalLight = new THREE.DirectionalLight(0xffffff, 2.0);
-    directionalLight.position.set(-10, 5, 10);
+    const directionalLight = new THREE.DirectionalLight(0xffffff, 1.0);
+    directionalLight.name = 'directionalLight';
+    const terrainPos = terrainMesh.position;
+    terrainPos.y += genHeight * 0.2;
+    directionalLight.lookAt(terrainPos);
+    lightManager.add(directionalLight);
     scene.add(directionalLight);
 
     // 自动调整相机以适应网格
     adjustCameraToFitMesh(camera as THREE.PerspectiveCamera, terrainMesh, scene);
+
+    directionalLight.position.set(camera.position.x, camera.position.y, camera.position.z);
+    const directionalLightHelper = new THREE.DirectionalLightHelper(directionalLight, 5);
+    directionalLightHelper.name = 'directionalLightHelper'
+    // objects.add(directionalLightHelper);
+
+    scene.add(objects);
     const controls = new OrbitControls(camera, canvasRef.value as HTMLCanvasElement);
     controls.enableDamping = true;
     controls.dampingFactor = 0.05;
@@ -94,7 +115,8 @@ function setupStage() {
 
     const GLObj : GLObject = {
       scene,
-      lightManager: new THREE.Group(),
+      lightManager,
+      objects,
       controls,
       renderer,
       camera,
@@ -119,13 +141,13 @@ function adjustCameraToFitMesh(camera: THREE.PerspectiveCamera, mesh: THREE.Mesh
   let cameraDistance = maxSize / 2 / Math.tan(fov / 2);
 
   // 添加一点边距，确保网格完全适合视图
-  cameraDistance *= 0.5;
+  cameraDistance *= 0.9;
 
   // 调整相机位置，使其看向网格中心
   const direction = camera.position.clone().normalize(); // 保留当前相机的方向
   camera.position.copy(direction.multiplyScalar(cameraDistance));
   camera.position.add(center);
-  // camera.position.y += 10;
+  camera.position.y += 10;
   camera.lookAt(center);
 
   // 更新相机的近远裁剪面
@@ -135,14 +157,12 @@ function adjustCameraToFitMesh(camera: THREE.PerspectiveCamera, mesh: THREE.Mesh
 }
 
 function startUpStage(gl:GLObject) {
-  const { scene, camera, renderer, controls } = gl;
+  const { scene, camera, renderer, controls, objects, lightManager} = gl;
 
   // 保存 GLObject 引用
   glObjRef.value = gl;
 
   // 初始化背景颜色
-  const initialTheme = currentTheme.value;
-  // scene.background = new THREE.Color(initialTheme === 'light' ? '#f3f4f6' : '#1e1e1e');
   scene.background = null;
 
   const animate = () => {
@@ -150,6 +170,25 @@ function startUpStage(gl:GLObject) {
     renderer.setClearColor(0x000000, 0.0); // 黑色背景，完全透明
     // 更新控制器状态，确保 damping 等效果生效
     controls.update();
+
+    // 处理地形变形动画 - 使用基于高度的延迟动画
+    if (isTerrainAnimating.value) {
+      const currentTime = performance.now();
+      const progress = ColorInterpolator.calculateProgressWithEasing(
+        terrainAnimationStart.value,
+        currentTime,
+        terrainAnimationDuration,
+        ColorInterpolator.easeInOutQuad
+      );
+
+      // 如果动画已完成，停止动画
+      if (progress >= 1) {
+        isTerrainAnimating.value = false;
+      } else {
+        // 使用基于高度的延迟动画，传递当前动画进度
+        terrainRef().setMorphInfluenceWithDelay(progress, 30); // 30是maxDepth
+      }
+    }
 
     // 处理颜色渐变
     if (isColorTransitioning.value && colorTransitionStart.value !== null) {
@@ -176,9 +215,18 @@ function startUpStage(gl:GLObject) {
       }
     }
 
+    objects.getObjectByName('directionalLightHelper')?.position.copy(camera.position);
+    lightManager.getObjectByName('directionalLight')?.position.copy(camera.position);
+
+    terrainRef().updateUniforms();
     // 渲染场景
     renderer.render(scene, camera);
   };
+
+  // 开始地形变形动画
+  isTerrainAnimating.value = true;
+  terrainAnimationStart.value = performance.now();
+
   animate();
 }
 
@@ -212,5 +260,4 @@ onMounted(() => {
     })
   }
 })
-
 </script>

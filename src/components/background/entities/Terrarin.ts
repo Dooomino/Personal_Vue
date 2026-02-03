@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import WireShader  from '../shaders/wires.ts';
 
 // 简单的Perlin Noise实现
 class SimplexNoise {
@@ -43,7 +44,7 @@ class SimplexNoise {
     };
   }
 
-  private noise(x: number, y: number = 0, z: number = 0): number {
+  noise(x: number, y: number = 0, z: number = 0): number {
     if (!arguments.length) {
       return 0.5;
     }
@@ -162,6 +163,9 @@ export class Terrarin {
   mesh: THREE.Mesh;
   private config: TerrainConfig;  // 添加配置对象
   private perlinNoise: SimplexNoise; // 添加Perlin Noise实例
+  private baseGeometry: THREE.BufferGeometry; // 保存基础几何体引用
+  private originalPositions: Float32Array; // 保存原始地形位置
+  private flatPositions: Float32Array; // 保存平面位置
 
   constructor(width: number, maxDepth: number, resolution: Array<number>, config?: Partial<TerrainConfig>) {
     this.width = width;
@@ -174,7 +178,85 @@ export class Terrarin {
 
     // 生成随机地形高度数据
     const grid = this.generateRandomTerrain();
-    this.mesh = this.calcGrid(grid);
+
+    // 创建平面网格作为变形目标
+    const planeGrid = this.createFlatGrid();
+
+    this.originalPositions = new Float32Array(this.width * this.width * 3);
+    this.flatPositions = new Float32Array(this.width * this.width * 3);
+
+    this.calculateGridVertices(this.originalPositions, grid);
+    this.calculateGridVertices(this.flatPositions, planeGrid);
+
+    this.baseGeometry = this.createBaseGeometry();
+
+    // const material = new THREE.MeshPhongMaterial({
+    //   color: 0xffffff, // 纯白色
+    //   emissive: 0xffffff,
+    //   emissiveIntensity: 0.5,
+    //   wireframe: true, // 保留线框模式
+    //   side: THREE.DoubleSide, // 双面渲染
+    //   morphTargets: false // 不使用 Morph Targets，直接操作顶点
+    // });
+
+    const material = new THREE.ShaderMaterial({
+      uniforms: {
+        ...WireShader.uniforms,
+      },
+      vertexShader: WireShader.vertexShader,
+      fragmentShader: WireShader.fragmentShader,
+      wireframe: true,
+      side: THREE.DoubleSide
+    })
+    setTimeout(() => {
+      material.uniforms.maxDepth.value = this.maxDepth;
+    }, 1000);
+
+    this.mesh = new THREE.Mesh(this.baseGeometry, material);
+  }
+  updateUniforms(): void {
+    WireShader.uniforms.timer.value = performance.now() / 1000;
+  }
+  // 创建基础几何体
+  private createBaseGeometry(): THREE.BufferGeometry {
+    const geometry = new THREE.BufferGeometry();
+
+    // 设置顶点位置为平面（初始状态）
+    geometry.setAttribute('position', new THREE.BufferAttribute(new Float32Array(this.flatPositions), 3));
+
+    // 生成索引数组，创建三角形面片
+    const indices = [];
+    for (let i = 0; i < this.width - 1; i++) {
+      for (let j = 0; j < this.width - 1; j++) {
+        // 定义两个三角形组成一个四边形面片
+        const topLeft = i * this.width + j;
+        const topRight = i * this.width + (j + 1);
+        const bottomLeft = (i + 1) * this.width + j;
+        const bottomRight = (i + 1) * this.width + (j + 1);
+
+        // 第一个三角形: 左上 -> 右上 -> 左下
+        indices.push(topLeft, topRight, bottomLeft);
+
+        // 第二个三角形: 右上 -> 右下 -> 左下
+        indices.push(topRight, bottomRight, bottomLeft);
+      }
+    }
+
+    // 设置几何体索引
+    geometry.setIndex(indices);
+
+    // 计算法线和边界框
+    geometry.computeVertexNormals();
+    geometry.computeBoundingBox();
+
+    return geometry;
+  }
+
+  // 创建平面网格数据
+  private createFlatGrid(): Array<Array<number>> {
+    return Array.from({ length: this.width }, () =>
+      Array.from({ length: this.width }, () => 0)
+    );
   }
 
   // 使用 Perlin Noise 生成随机地形
@@ -199,14 +281,7 @@ export class Terrarin {
         // grid[y][x] += this.perlinNoise.noiseDetail(x, y, grid[y][x]);
         const noise = perlinValue + 1
         grid[y][x] = noise * this.maxDepth  * centerFactor; // 将[-1,1]范围转换到[0,maxDepth]
-      }
-    }
-    console.log(grid);
-    // 确保所有值都在合理范围内
-    for (let i = 0; i < this.width; i++) {
-      for (let j = 0; j < this.width; j++) {
-        // 限制高度在 [0, maxDepth] 范围内
-        grid[i][j] = Math.max(0, Math.min(this.maxDepth, grid[i][j]));
+        grid[y][x] = Math.max(0, Math.min(this.maxDepth,grid[y][x]));
       }
     }
 
@@ -236,8 +311,6 @@ export class Terrarin {
     return value;
   }
 
-
-
   calculateGridVertices(vertices: Float32Array, grid: Array<Array<number>>): Float32Array {
     // 计算网格顶点
     const offset = this.width % 2 === 1 ? 0 : 0.5;
@@ -252,6 +325,83 @@ export class Terrarin {
     return vertices;
   }
 
+  // 用于设置变形影响的公共方法，支持基于高度的延迟动画
+  setMorphInfluenceWithDelay(animationProgress: number = 1.0, maxHeight: number = this.maxDepth) {
+    if (!this.mesh || !this.baseGeometry) {
+      return;
+    }
+
+    // 获取地形网格数据，用于计算每个顶点的延迟
+    const positionAttr = this.baseGeometry.getAttribute('position');
+
+    if (!positionAttr) {
+      return;
+    }
+
+    // 创建一个新的attribute来存储动画进度
+    const animatedPositions = new Float32Array(positionAttr.count * 3);
+
+    // 根据高度设置每个顶点的动画进度
+    for (let i = 0; i < positionAttr.count; i++) {
+      const baseY = this.originalPositions[i * 3 + 1]; // 顶点的目标Y值（地形高度）
+      const flatY = this.flatPositions[i * 3 + 1];    // 顶点的平面Y值（0）
+
+      // 计算延迟：高度越高，延迟越小（越早开始动画）
+      // 我们将高度归一化到[0,1]区间，然后应用延迟公式
+      const normalizedHeight = Math.abs(baseY) / maxHeight;
+      const delayFactor = 1 - normalizedHeight; // 高度越高，delayFactor越小
+
+      // 计算该顶点的动画进度，受高度影响
+      // 高的地方先变化，低的地方后变化
+      let vertexProgress = 0;
+      if (delayFactor <= animationProgress) {
+        // 如果动画进度超过了该顶点的延迟，计算它的具体进度
+        vertexProgress = Math.min(1, (animationProgress - delayFactor) / (1 - delayFactor));
+      }
+
+      // 计算插值后的顶点位置
+      const interpolatedY = flatY + (baseY - flatY) * vertexProgress;
+
+      // 设置新位置
+      animatedPositions[i * 3] = this.originalPositions[i * 3]; // X坐标不变
+      animatedPositions[i * 3 + 1] = interpolatedY;            // Y坐标插值
+      animatedPositions[i * 3 + 2] = this.originalPositions[i * 3 + 2]; // Z坐标不变
+    }
+
+    // 更新几何体的顶点位置
+    this.baseGeometry.setAttribute('position', new THREE.BufferAttribute(animatedPositions, 3));
+    this.baseGeometry.attributes.position.needsUpdate = true;
+  }
+
+  // 用于设置变形影响的公共方法，支持统一影响值
+  setMorphInfluence(value: number) {
+    if (!this.mesh || !this.baseGeometry) {
+      return;
+    }
+
+    const positionAttr = this.baseGeometry.getAttribute('position');
+    if (!positionAttr) {
+      return;
+    }
+
+    const animatedPositions = new Float32Array(positionAttr.count * 3);
+
+    for (let i = 0; i < positionAttr.count; i++) {
+      const baseY = this.originalPositions[i * 3 + 1];
+      const flatY = this.flatPositions[i * 3 + 1];
+
+      const interpolatedY = flatY + (baseY - flatY) * value;
+
+      animatedPositions[i * 3] = this.originalPositions[i * 3];
+      animatedPositions[i * 3 + 1] = interpolatedY;
+      animatedPositions[i * 3 + 2] = this.originalPositions[i * 3 + 2];
+    }
+
+    this.baseGeometry.setAttribute('position', new THREE.BufferAttribute(animatedPositions, 3));
+    this.baseGeometry.attributes.position.needsUpdate = true;
+  }
+
+  // 旧的calcGrid方法保留在这里以防需要
   calcGrid(grid: Array<Array<number>>): THREE.Mesh {
     const geometry = new THREE.BufferGeometry();
 
@@ -288,8 +438,10 @@ export class Terrarin {
     geometry.computeBoundingBox();
 
     const material = new THREE.MeshPhongMaterial({
-      // color: 0xfff, // 改为海洋蓝颜色
-      color: 0x6495ED, // 改为海洋蓝颜色
+      color: 0xfff, // 改为白色
+      emissive: 0xfff,
+      emissiveIntensity: 10.0,
+      // color: 0x6495ED, // 改为海洋蓝颜色
       wireframe: true, // 关闭线框模式，显示实体
       side: THREE.DoubleSide // 双面渲染
     });
