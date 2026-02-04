@@ -113,7 +113,7 @@ function setupStage() {
     controls.autoRotate = true;
     controls.autoRotateSpeed = 0.3;
     controls.enableZoom = false;
-    controls.enableRotate = true;
+    controls.enableRotate = false;
     controls.rotateSpeed = 0.5;
     controls.enablePan = false;
     controls.update();

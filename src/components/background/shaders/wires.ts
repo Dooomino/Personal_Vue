@@ -35,6 +35,10 @@ const WireShader = {
       return fract(sin(x) * 43758.5453123);
     }
 
+    float distanceToOrigin(vec3 point){
+      return sqrt(point.x * point.x + point.z * point.z);
+    }
+
     void main() {
       vec3 color = vec3(0.3);
       float factor = 1.0/tan(timer * 0.2) * maxDepth ;
@@ -43,24 +47,30 @@ const WireShader = {
         alpha = 0.3;
       }
 
-      if(abs(vPosition.y - factor) < maxDepth ){
-        // color = vec3(0.4);
-        alpha = inverse;
-      }else if(abs(vPosition.y + 1.0 - factor) < maxDepth ){
-        // color = vec3(0.2);
-        alpha = inverse;
-      }else if(abs(vPosition.y + 2.0 - factor) < maxDepth ){
-        // color = vec3(0.1);
+      float maxDistance = sqrt(maxDepth/2.0 * maxDepth/2.0);
+      // if(abs(vPosition.y - factor) < maxDepth ){
+        //   // color = vec3(0.4);
+        //   alpha = inverse;
+        // }else if(abs(vPosition.y + 1.0 - factor) < maxDepth ){
+      //   // color = vec3(0.2);
+      //   alpha = inverse;
+      // }else if(abs(vPosition.y + 2.0 - factor) < maxDepth ){
+        //   // color = vec3(0.1);
+        //   alpha = inverse;
+        // }
+
+      float distance = distanceToOrigin(vPosition);
+      if (abs(log(distance/maxDistance) + factor * 0.5) < 5.0){
         alpha = inverse;
       }
-
-      color += vPosition.y / (maxDepth * 0.5) * color;
+      color += vec3(0.118);
+      color += abs(vPosition.y / (maxDepth * 0.5) * color);
 
       //mask
       vec4 mask = texture2D(tMask, vUv);
       if(mask.r > 0.0){
         float colorFac = sin(timer) * 0.5;
-        color += vec3(mask.r * colorFac ,mask.g * colorFac ,mask.b * colorFac ) * 0.5;
+        color += vec3(mask.r * colorFac ,mask.g * colorFac ,mask.b * colorFac );
       }
 
       gl_FragColor = vec4(color,alpha);

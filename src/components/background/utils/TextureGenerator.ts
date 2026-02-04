@@ -226,8 +226,8 @@ class PerlinNoiseGenerator {
     // 颜色映射配置
     colorMapping: {
       useColor: true,
-      colorLow: '#000000',
-      colorHigh: '#ffffff',
+      colorLow: '#1e1e1e',
+      colorHigh: '#f3f4f6',
       grayscale: false
     }
   };

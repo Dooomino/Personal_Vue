@@ -232,10 +232,10 @@ export class Terrarin {
     })
     material.uniforms.tMask.value = texture;
     material.uniforms.inverse.value = 1.0;
+    this.startCount = true;
     setTimeout(() => {
       material.uniforms.maxDepth.value = this.maxDepth;
-      this.startCount = true;
-    }, 3500);
+    }, 2000);
 
     this.baseGeometry.addGroup(0, Infinity, 0);
     this.baseGeometry.addGroup(0, Infinity, 1);
