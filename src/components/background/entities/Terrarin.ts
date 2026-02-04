@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import WireShader  from '../shaders/wires.ts';
+import { TextureGenerator } from '../utils/TextureGenerator.ts';
 
 // 简单的Perlin Noise实现
 class SimplexNoise {
@@ -161,6 +162,9 @@ export class Terrarin {
   maxDepth: number;
   resolution: Array<number>;
   mesh: THREE.Mesh;
+  mask: TextureGenerator;
+  startCount: boolean = false;
+
   private config: TerrainConfig;  // 添加配置对象
   private perlinNoise: SimplexNoise; // 添加Perlin Noise实例
   private baseGeometry: THREE.BufferGeometry; // 保存基础几何体引用
@@ -189,7 +193,14 @@ export class Terrarin {
     this.calculateGridVertices(this.flatPositions, planeGrid);
 
     this.baseGeometry = this.createBaseGeometry();
+    this.genUv(this.baseGeometry)
+    this.baseGeometry.computeVertexNormals();
 
+    const texGen = new TextureGenerator(320,320);
+    // texGen.generateVoronii();
+    texGen.generatePerlinNoise();
+    const texture = texGen.getTexture();
+    this.mask = texGen
     // const material = new THREE.MeshPhongMaterial({
     //   color: 0xffffff, // 纯白色
     //   emissive: 0xffffff,
@@ -206,16 +217,35 @@ export class Terrarin {
       vertexShader: WireShader.vertexShader,
       fragmentShader: WireShader.fragmentShader,
       wireframe: true,
+      side: THREE.DoubleSide,
+      transparent: true,
+    })
+
+    const solidMaterial = new THREE.ShaderMaterial({
+      uniforms: {
+        ...WireShader.uniforms,
+      },
+      vertexShader: WireShader.vertexShader,
+      fragmentShader: WireShader.fragmentShader,
+      transparent: true,
       side: THREE.DoubleSide
     })
+    material.uniforms.tMask.value = texture;
+    material.uniforms.inverse.value = 1.0;
     setTimeout(() => {
       material.uniforms.maxDepth.value = this.maxDepth;
-    }, 1000);
+      this.startCount = true;
+    }, 3500);
 
-    this.mesh = new THREE.Mesh(this.baseGeometry, material);
+    this.baseGeometry.addGroup(0, Infinity, 0);
+    this.baseGeometry.addGroup(0, Infinity, 1);
+    this.mesh = new THREE.Mesh(this.baseGeometry, [material,solidMaterial]);
+    // this.mesh = new THREE.Mesh(this.baseGeometry, material);
   }
   updateUniforms(): void {
-    WireShader.uniforms.timer.value = performance.now() / 1000;
+    if (this.startCount) {
+      WireShader.uniforms.timer.value = performance.now() / 1000;
+    }
   }
   // 创建基础几何体
   private createBaseGeometry(): THREE.BufferGeometry {
@@ -399,6 +429,48 @@ export class Terrarin {
 
     this.baseGeometry.setAttribute('position', new THREE.BufferAttribute(animatedPositions, 3));
     this.baseGeometry.attributes.position.needsUpdate = true;
+  }
+
+  genUv(geo: THREE.BufferGeometry){
+    // 获取顶点位置数据
+    const positionAttribute = geo.getAttribute('position') as THREE.BufferAttribute;
+    const positions = positionAttribute.array as Float32Array;
+
+    // 创建UV数组 - 每个顶点对应2个UV坐标
+    const uvArray = new Float32Array(positions.length * 2 / 3);
+
+    // 获取几何体的边界框来计算UV坐标的归一化范围
+    geo.computeBoundingBox();
+    const boundingBox = geo.boundingBox!;
+
+    const minX = boundingBox.min.x;
+    const maxX = boundingBox.max.x;
+    const minZ = boundingBox.min.z;
+    const maxZ = boundingBox.max.z;
+
+    const width = maxX - minX;
+    const depth = maxZ - minZ;
+
+    // 为每个顶点计算UV坐标
+    for (let i = 0; i < positions.length; i += 3) {
+      const x = positions[i];
+      const z = positions[i + 2];
+
+      // 将世界坐标转换为[0,1]范围的UV坐标
+      const u = width > 0 ? (x - minX) / width : 0;
+      const v = depth > 0 ? (z - minZ) / depth : 0;
+
+      // UV坐标存储在数组中的位置
+      const uvIndex = (i / 3) * 2;
+      uvArray[uvIndex] = u;     // U coordinate
+      uvArray[uvIndex + 1] = v; // V coordinate
+    }
+
+    // 设置UV属性
+    geo.setAttribute('uv', new THREE.BufferAttribute(uvArray, 2));
+
+    // 标记UV数据需要更新
+    geo.attributes.uv.needsUpdate = true;
   }
 
   // 旧的calcGrid方法保留在这里以防需要

@@ -1,13 +1,19 @@
 <template>
-  <canvas ref="canvasRef"></canvas>
+  <div>
+    <canvas ref="canvasRef"></canvas>
+    <div class="test-window" v-if="generatedTexture && false">
+      <img :src="generatedTexture" alt="">
+    </div>
+  </div>
 </template>
 <script setup lang="ts">
 import * as THREE from 'three';
-import { onMounted, ref, shallowRef } from 'vue';
+import { onMounted, onUnmounted, ref, shallowRef } from 'vue';
 import { useThemeStore } from '../../stores/theme.ts';
 import { Terrarin } from './entities/Terrarin';
 import { OrbitControls } from 'three-stdlib';
 import { ColorInterpolator } from './utils/ColorInterpolator';
+import { TextureGenerator } from './utils/TextureGenerator.ts';
 
 const themeStore = useThemeStore();
 const canvasRef = ref<HTMLCanvasElement | null>(null);
@@ -19,7 +25,7 @@ const terrainRef = () => terrain.value!;
 // 保存 GLObject 引用以便在主题切换时使用
 const glObjRef = shallowRef<GLObject | null>(null);
 const currentTheme = ref<'light' | 'dark'>(themeStore.isDarkMode ? 'dark' : 'light');
-
+const generatedTexture = ref<string|null>(null);
 // 颜色渐变相关变量
 const isColorTransitioning = ref(false);
 const colorTransitionStart = ref<number>(0);
@@ -164,7 +170,9 @@ function startUpStage(gl:GLObject) {
 
   // 初始化背景颜色
   scene.background = null;
-
+  if (terrainRef().mask){
+    generatedTexture.value = terrainRef().mask.getImage();
+  }
   const animate = () => {
     requestAnimationFrame(animate);
     renderer.setClearColor(0x000000, 0.0); // 黑色背景，完全透明
@@ -198,7 +206,7 @@ function startUpStage(gl:GLObject) {
         currentTime,
         colorTransitionDuration
       );
-      console.log(fromColor, toColor, progress);
+      // console.log(fromColor, toColor, progress);
       ColorInterpolator.interpolateColors(
         fromColor,
         toColor,
@@ -259,5 +267,27 @@ onMounted(() => {
       startUpStage(gl as GLObject)
     })
   }
+
+
+})
+
+onUnmounted(() => {
+  const gl = glObjRef.value;
+  if (gl) {
+    gl.controls.dispose();
+    gl.renderer.dispose();
+
+  }
 })
 </script>
+<style scoped>
+.test-window{
+  position: fixed !important;
+  z-index: 9999;
+  top: 0;
+  right: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+}
+</style>
