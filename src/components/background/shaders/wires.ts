@@ -2,7 +2,7 @@ import * as THREE from "three";
 
 const WireShader = {
   uniforms: {
-    timer : { value: 0.0 },
+    periodTimer : { value: 0.0 },
     maxDepth : { value: 100000.0 },
     tMask: { value: null },
     inverse: { value: 0.0 }
@@ -23,10 +23,11 @@ const WireShader = {
     }
   `,
   fragmentShader: `
+    precision mediump float;
     varying vec3 vColor;
     varying vec3 vPosition;
     varying vec2 vUv;
-    uniform float timer;
+    uniform float periodTimer;
     uniform float maxDepth;
     uniform sampler2D tMask;
     uniform float inverse;
@@ -39,9 +40,14 @@ const WireShader = {
       return sqrt(point.x * point.x + point.z * point.z);
     }
 
+    float periodicFunction(float t){
+
+      return -sin(t * 0.5);
+    }
+
     void main() {
       vec3 color = vec3(0.3);
-      float factor = 1.0/tan(timer * 0.2) * maxDepth ;
+      float factor = 1.0/tan(periodTimer * 0.2) * maxDepth ;
       float alpha = 1.0;
       if (inverse > 0.0){
         alpha = 0.3;
@@ -60,21 +66,25 @@ const WireShader = {
         // }
 
       float distance = distanceToOrigin(vPosition);
-      if (abs(log(distance/maxDistance) + factor * 0.5) < 5.0){
+
+      float f1 = periodicFunction(periodTimer);
+
+      if ( abs(f1 * distance - maxDistance) < 0.3 ){
         alpha = inverse;
       }
+
+
       color += vec3(0.118);
       color += abs(vPosition.y / (maxDepth * 0.5) * color);
 
       //mask
       vec4 mask = texture2D(tMask, vUv);
       if(mask.r > 0.0){
-        float colorFac = sin(timer) * 0.5;
+        float colorFac = sin(periodTimer) * 0.5;
         color += vec3(mask.r * colorFac ,mask.g * colorFac ,mask.b * colorFac );
       }
 
       gl_FragColor = vec4(color,alpha);
-      // gl_FragColor = vec4(vec2(vUv),0.0,1.0);
     }
   `
 };

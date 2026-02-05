@@ -263,6 +263,7 @@ themeStore.$onAction((action) => {
 
 onMounted(() => {
   if(canvasRef.value){
+    dispose();
     setupStage().then((gl) =>{
       startUpStage(gl as GLObject)
     })
@@ -271,13 +272,17 @@ onMounted(() => {
 
 })
 
-onUnmounted(() => {
+function dispose(){
   const gl = glObjRef.value;
   if (gl) {
     gl.controls.dispose();
     gl.renderer.dispose();
 
   }
+}
+
+onUnmounted(() => {
+  dispose();
 })
 </script>
 <style scoped>

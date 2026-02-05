@@ -164,6 +164,7 @@ export class Terrarin {
   mesh: THREE.Mesh;
   mask: TextureGenerator;
   startCount: boolean = false;
+  delta: number = 0;
 
   private config: TerrainConfig;  // 添加配置对象
   private perlinNoise: SimplexNoise; // 添加Perlin Noise实例
@@ -244,7 +245,14 @@ export class Terrarin {
   }
   updateUniforms(): void {
     if (this.startCount) {
-      WireShader.uniforms.timer.value = performance.now() / 1000;
+      // update in deg
+
+      if (this.delta > 1){
+        this.delta = 0;
+      }else{
+        this.delta += 0.01;
+      }
+      WireShader.uniforms.periodTimer.value =  this.delta ;
     }
   }
   // 创建基础几何体
