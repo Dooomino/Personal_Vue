@@ -488,7 +488,83 @@ export class TextureGenerator {
 
     return this;
   }
+  /**
+   * 根据二维网格数据生成纹理，实现grid值与画布像素的一对一精准映射
+   * @param grid 二维数组，包含每个像素的数值
+   * @param maxDepth 网格值的最大深度，用于归一化颜色映射
+   * @param colorMap 可选的颜色映射函数，将数值转换为颜色字符串
+   *                如果不提供，默认使用灰度映射
+   * @returns TextureGenerator 实例，支持链式调用
+   *
+   * @example
+   * // 精准像素映射 - grid的每个值对应画布上的一个像素
+   * const pixelGrid = [
+   *   [0.1, 0.3, 0.5, 0.7],
+   *   [0.2, 0.4, 0.6, 0.8],
+   *   [0.15, 0.35, 0.55, 0.75],
+   *   [0.25, 0.45, 0.65, 0.85]
+   * ];
+   * // 画布将被设置为 4x4 像素，每个grid值精确对应一个像素
+   * generator.generateFromGrid(pixelGrid, 1.0);
+   */
+  generateFromGrid(grid: Array<Array<number>>, maxDepth: number, colorMap?: (value: number) => string){
+    const ctx = this.canvas.getContext('2d');
+    if (!ctx) {
+      throw new Error('Failed to get canvas context');
+    }
 
+    const gridRows = grid.length;
+    const gridCols = grid[0]?.length || 0;
+
+    if (gridRows === 0 || gridCols === 0) {
+      throw new Error('Grid cannot be empty');
+    }
+
+    // 精准映射：将画布尺寸设置为与grid完全匹配
+    // 每个grid值对应画布上的一个像素点
+    this.canvas.width = gridCols;
+    this.canvas.height = gridRows;
+    this.width = gridCols;
+    this.height = gridRows;
+
+    // 如果没有提供颜色映射函数，使用默认的灰度映射
+    const getColor = colorMap || ((value: number) => {
+      // 将值映射到灰度范围 [0, 15]
+      const normalizedVal = value / maxDepth;
+      const maxGrey = GRAYSCALE.length - 1;
+      const grayIndex = Math.round(normalizedVal * maxGrey);
+      return GRAYSCALE[grayIndex];
+    });
+
+    // 使用ImageData进行精准像素级操作
+    const imageData = ctx.createImageData(this.width, this.height);
+    const data = imageData.data;
+
+    // 逐像素设置颜色值
+    for (let row = 0; row < gridRows; row++) {
+      for (let col = 0; col < gridCols; col++) {
+        const value = grid[row][col];
+        const color = getColor(value);
+
+        // 将十六进制颜色转换为RGB
+        const rgb = this.hexToRgb(color);
+
+        // 计算像素在ImageData中的索引
+        const pixelIndex = (row * gridCols + col) * 4;
+
+        // 设置RGBA值
+        data[pixelIndex] = rgb.r;     // Red
+        data[pixelIndex + 1] = rgb.g; // Green
+        data[pixelIndex + 2] = rgb.b; // Blue
+        data[pixelIndex + 3] = 255;   // Alpha (完全不透明)
+      }
+    }
+
+    // 将图像数据绘制到画布
+    ctx.putImageData(imageData, 0, 0);
+
+    return this;
+  }
   // 生成渐变纹理
   generateGradient(startColor: string = '#ff0000', endColor: string = '#0000ff', direction: 'horizontal' | 'vertical' = 'horizontal') {
     const ctx = this.canvas.getContext('2d');
@@ -528,6 +604,16 @@ export class TextureGenerator {
   // 获取图像数据 URL
   getImage(): string {
     return this.canvas.toDataURL();
+  }
+
+  // 十六进制颜色转 RGB
+  private hexToRgb(hex: string): {r: number, g: number, b: number} {
+    const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
+    return result ? {
+      r: parseInt(result[1], 16),
+      g: parseInt(result[2], 16),
+      b: parseInt(result[3], 16)
+    } : {r: 0, g: 0, b: 0};
   }
 
   // 获取 Three.js 纹理

@@ -1,6 +1,18 @@
 import * as THREE from 'three';
-import WireShader  from '../shaders/wires.ts';
+import WireShader, { setGridTexture } from '../shaders/wires.ts';
 import { TextureGenerator } from '../utils/TextureGenerator.ts';
+import type { OrbitControls } from 'three-stdlib';
+
+export interface GLObject{
+  scene: THREE.Scene;
+  lightManager: THREE.Group;
+  controls: OrbitControls;
+  objects: THREE.Group;
+  renderer: THREE.WebGLRenderer;
+  camera: THREE.PerspectiveCamera;
+  animateId?: number; // 用于存储 requestAnimationFrame ID
+}
+
 
 // 简单的Perlin Noise实现
 class SimplexNoise {
@@ -164,12 +176,14 @@ export class Terrarin {
   mesh: THREE.Mesh;
   mask: TextureGenerator;
   startCount: boolean = false;
+  lightHousePoint: THREE.Vector3 = new THREE.Vector3(0, 0, 0);
 
   private config: TerrainConfig;  // 添加配置对象
   private perlinNoise: SimplexNoise; // 添加Perlin Noise实例
   private baseGeometry: THREE.BufferGeometry; // 保存基础几何体引用
   private originalPositions: Float32Array; // 保存原始地形位置
   private flatPositions: Float32Array; // 保存平面位置
+  private finalGrid: Array<Array<number>> = []; // 保存最终地形网格数据
 
   constructor(width: number, maxDepth: number, resolution: Array<number>, config?: Partial<TerrainConfig>) {
     this.width = width;
@@ -198,17 +212,10 @@ export class Terrarin {
 
     const texGen = new TextureGenerator(320,320);
     // texGen.generateVoronii();
-    texGen.generatePerlinNoise();
+    // texGen.generatePerlinNoise();
+    // texGen.generateFromGrid(grid, maxDepth);
     const texture = texGen.getTexture();
     this.mask = texGen
-    // const material = new THREE.MeshPhongMaterial({
-    //   color: 0xffffff, // 纯白色
-    //   emissive: 0xffffff,
-    //   emissiveIntensity: 0.5,
-    //   wireframe: true, // 保留线框模式
-    //   side: THREE.DoubleSide, // 双面渲染
-    //   morphTargets: false // 不使用 Morph Targets，直接操作顶点
-    // });
 
     const material = new THREE.ShaderMaterial({
       uniforms: {
@@ -232,19 +239,42 @@ export class Terrarin {
     })
     material.uniforms.tMask.value = texture;
     material.uniforms.inverse.value = 1.0;
+    material.uniforms.maxDepth.value = this.maxDepth;
+
+    // 设置网格纹理到着色器（直接使用顶点Y值）
+    setGridTexture(material, maxDepth);
+
     this.startCount = true;
-    setTimeout(() => {
-      material.uniforms.maxDepth.value = this.maxDepth;
-    }, 2000);
 
     this.baseGeometry.addGroup(0, Infinity, 0);
     this.baseGeometry.addGroup(0, Infinity, 1);
     this.mesh = new THREE.Mesh(this.baseGeometry, [material,solidMaterial]);
     // this.mesh = new THREE.Mesh(this.baseGeometry, material);
   }
-  updateUniforms(): void {
+  updateUniforms(gl: GLObject): void {
     if (this.startCount) {
       WireShader.uniforms.timer.value = performance.now() / 1000;
+      if(gl){
+        const {lightManager} = gl;
+        const dirLight =  lightManager.getObjectByName('directionalLight');
+
+        // 使用新的光照系统uniforms
+        if (dirLight) {
+          // 设置光源方向（从光源指向场景的反向）
+          const lightDirection = dirLight.position.clone().normalize().multiplyScalar(-1);
+          WireShader.uniforms.uLightDirection.value = lightDirection;
+
+          // 可以根据需要设置光源颜色（这里保持默认绿色）
+          // WireShader.uniforms.uLightColor.value = new THREE.Vector3(0.0, 1.0, 0.0);
+
+          // 可以根据光源强度调整环境光强度
+          // WireShader.uniforms.uAmbientStrength.value = dirLight.intensity * 0.3;
+        }
+
+        // 保留原有的uDirPos设置以保持向后兼容
+        const dirLightPos = dirLight?.position;
+        WireShader.uniforms.uDirPos.value = dirLightPos as THREE.Vector3;
+      }
     }
   }
   // 创建基础几何体
@@ -288,13 +318,94 @@ export class Terrarin {
       Array.from({ length: this.width }, () => 0)
     );
   }
+  generateLightHoseIsland(grid: Array<Array<number>> ): Array<Array<number>> {
+    // 指定外环随机位置生成凸点
+    const width = this.width;
+    const outerRingRadiusRange = [0.6 * width/2, 0.65 * width/2];
+    const islandRadius = 4;
+    const center = [width/2, width/2];
+    const height = this.maxDepth * Math.min(0.6 , Math.random())
+    // const height = 99999.0
+    // 选择一点, 满足outerRingRadiusRange
+    const [x, z] = this.getRandomPointInOuterRing(outerRingRadiusRange, center);
+    this.lightHousePoint.set(x,height,z)
+    grid[z][x] = height;
+    // 以 x,z 为中心，生成一个圆形区域，将高度设置为指定高度
+    for (let i = 0; i < width; i++) {
+      for (let j = 0; j < this.width; j++) {
+        const dx = i - x;
+        const dy = j - z;
+        const distance = Math.sqrt(dx * dx + dy * dy);
+        if (distance <= islandRadius) {
+          grid[j][i] = height;
+        }
+      }
+    }
+    console.log('[x,z]', [x,z],'height',height)
+    console.log('grid',structuredClone(grid))
+    return grid;
+  }
+
+  getRandomPointInOuterRing(outerRingRadiusRange: Array<number>, center: Array<number>): Array<number> {
+    const angle = Math.random() * Math.PI * 2;
+    const radius = Math.random() * (outerRingRadiusRange[1] - outerRingRadiusRange[0]) + outerRingRadiusRange[0];
+    return [
+      Math.floor(center[0] + radius * Math.cos(angle)),
+      Math.floor(center[1] + radius * Math.sin(angle))
+    ];
+  }
+
+  /**
+   * 将网格索引坐标转换为世界坐标
+   * @param gridRow 网格行索引（对应世界X坐标）
+   * @param gridColumn 网格列索引（对应世界Z坐标）
+   * @param height 高度值
+   * @returns THREE.Vector3 世界坐标
+   */
+  gridIndexToWorld(gridRow: number, gridColumn: number, height: number): THREE.Vector3 {
+    const offset = this.width % 2 === 1 ? 0 : 0.5;
+    const worldX = gridRow - this.width / 2 + offset;     // 行号对应X坐标
+    const worldY = height;
+    const worldZ = gridColumn - this.width / 2 + offset; // 列号对应Z坐标
+    return new THREE.Vector3(worldX, worldY, worldZ);
+  }
+
+  /**
+   * 获取灯塔的世界坐标（基于当前lightHousePoint索引坐标和最终网格高度）
+   * @returns THREE.Vector3 灯塔的世界坐标
+   */
+  getLightHouseWorldPosition(): THREE.Vector3 {
+    // 使用最终网格中的高度值，如果存在的话
+    const finalHeight = this.finalGrid.length > 0 && this.lightHousePoint.z < this.finalGrid.length && 
+                        this.lightHousePoint.x < this.finalGrid[0].length
+      ? this.finalGrid[this.lightHousePoint.z][this.lightHousePoint.x]
+      : this.lightHousePoint.y;
+    
+    // lightHousePoint存储的是 [column, height, row] 格式
+    // column (x) 对应网格列号 -> 世界Z坐标
+    // row (z) 对应网格行号 -> 世界X坐标
+    return this.gridIndexToWorld(
+      this.lightHousePoint.z,  // 行号 -> X坐标
+      this.lightHousePoint.x,  // 列号 -> Z坐标  
+      finalHeight
+    );
+  }
 
   // 使用 Perlin Noise 生成随机地形
   generateRandomTerrain(): Array<Array<number>> {
     // 初始化网格，所有值为 0
-    const grid = Array.from({ length: this.width }, () =>
+    let grid = Array.from({ length: this.width }, () =>
       Array.from({ length: this.width }, () => 0)
     );
+
+    // 先生成灯塔岛屿特征
+    grid = this.generateLightHoseIsland(grid);
+
+    // 记录灯塔位置和圆形区域参数，用于后续增强处理
+    const lightHouseX = this.lightHousePoint.x;
+    const lightHouseZ = this.lightHousePoint.z;
+    const lightHouseHeight = this.lightHousePoint.y;
+    const islandRadius = 4;
 
     // 使用Perlin Noise生成地形
     for (let y = 0; y < this.width; y++) {
@@ -308,13 +419,61 @@ export class Terrarin {
         centerFactor = centerFactor * Math.exp(-Math.pow(x-hw,2) / (2 * Math.pow(hw,2)));
         centerFactor = centerFactor * 0.8;
         // 将Perlin Noise值转换到[0, maxDepth]范围内
-        // grid[y][x] += this.perlinNoise.noiseDetail(x, y, grid[y][x]);
         const noise = perlinValue + 1
         grid[y][x] = noise * this.maxDepth  * centerFactor; // 将[-1,1]范围转换到[0,maxDepth]
         grid[y][x] = Math.max(0, Math.min(this.maxDepth,grid[y][x]));
       }
     }
 
+    // 处理圆形区域：应用噪声并增强
+    for (let y = 0; y < this.width; y++) {
+      for (let x = 0; x < this.width; x++) {
+        const dx = x - lightHouseX;
+        const dy = y - lightHouseZ;
+        const distance = Math.sqrt(dx * dx + dy * dy);
+        if (dx === 0 && dy === 0){
+          // // 对灯塔中心点进行额外增强（更平缓的锥形）
+          const baseHeightAtLightHouse = grid[lightHouseZ][lightHouseX];
+          const centerEnhancementFactor = 1.3; // 从1.5降低到1.3
+          const centerMinHeight = this.maxDepth * 0.2; // 进一步降低
+
+          const centerEnhancedHeight = Math.max(
+            baseHeightAtLightHouse * centerEnhancementFactor,
+            centerMinHeight,
+            baseHeightAtLightHouse + this.maxDepth * 0.15 // 从0.2降低到0.15
+          );
+
+          grid[lightHouseZ][lightHouseX] = Math.min(centerEnhancedHeight, this.maxDepth);
+          continue;
+        }
+        if (distance <= islandRadius) {
+          // 获取该位置的基础噪声高度
+          const baseHeight = grid[y][x];
+
+          // 计算距离因子（中心最高，边缘逐渐降低）
+          const distanceFactor = 1 - (distance / islandRadius);
+
+          // 使用平滑插值函数（三次曲线）使过渡更自然
+          const smoothFactor = distanceFactor * distanceFactor * (3 - 2 * distanceFactor); // 平滑S形曲线
+
+          // 增强因子：中心位置增强更多，但整体更平缓
+          const enhancementFactor = 1.1 + 0.4 * smoothFactor; // 1.1-1.5之间，更温和
+          const minHeight = this.maxDepth * 0.15; // 进一步降低最小高度阈值
+
+          // 结合噪声基础高度和特征增强
+          const enhancedHeight = Math.max(
+            baseHeight * enhancementFactor,
+            minHeight,
+            baseHeight + this.maxDepth * 0.15 * smoothFactor // 使用平滑因子控制增强幅度
+          );
+
+          grid[y][x] = Math.min(enhancedHeight, this.maxDepth);
+        }
+      }
+    }
+
+    // 保存最终网格数据供外部访问
+    this.finalGrid = grid;
     return grid;
   }
 
@@ -527,5 +686,62 @@ export class Terrarin {
   }
   getMesh(): THREE.Mesh {
     return this.mesh;
+  }
+
+  /**
+   * 获取最终地形网格数据
+   * @returns Array<Array<number>> 地形高度网格
+   */
+  getTerrainGrid(): Array<Array<number>> {
+    return this.finalGrid || [];
+  }
+
+  // 添加 dispose 方法来清理资源
+  dispose(): void {
+    if (this.mesh) {
+      // 清理材质
+      if (this.mesh.material) {
+        if (Array.isArray(this.mesh.material)) {
+          this.mesh.material.forEach(material => {
+            if (material instanceof THREE.ShaderMaterial) {
+              // 清理 ShaderMaterial 的纹理
+              if (material.uniforms && material.uniforms.tMask?.value) {
+                material.uniforms.tMask.value.dispose();
+              }
+              // 清理材质本身
+              material.dispose();
+            }
+          });
+        } else if (this.mesh.material instanceof THREE.ShaderMaterial) {
+          if (this.mesh.material.uniforms && this.mesh.material.uniforms.tMask?.value) {
+            this.mesh.material.uniforms.tMask.value.dispose();
+          }
+          this.mesh.material.dispose();
+        }
+      }
+
+      // 清理几何体
+      if (this.mesh.geometry) {
+        this.mesh.geometry.dispose();
+      }
+
+      // 清理网格引用
+      this.mesh = undefined as any;
+    }
+
+    // 清理纹理生成器
+    if (this.mask) {
+      // 使用类型断言来调用 dispose 方法
+      const maskInstance = this.mask as { dispose?: () => void };
+      if (typeof maskInstance.dispose === 'function') {
+        maskInstance.dispose();
+      }
+      this.mask = undefined as any;
+    }
+
+    // 清理其他引用
+    this.baseGeometry = undefined as any;
+    this.originalPositions = undefined as any;
+    this.flatPositions = undefined as any;
   }
 }

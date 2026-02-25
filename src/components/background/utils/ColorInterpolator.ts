@@ -67,9 +67,13 @@ export class ColorInterpolator {
     startTime: number,
     currentTime: number,
     duration: number,
-    easingFunction: (t: number) => number
+    easingFunction: (t: number) => number,
+    max?: number
   ): number {
     const progress = ColorInterpolator.calculateProgress(startTime, currentTime, duration);
+    if (max) {
+      return Math.min(easingFunction(progress), max);
+    }
     return easingFunction(progress);
   }
 }
