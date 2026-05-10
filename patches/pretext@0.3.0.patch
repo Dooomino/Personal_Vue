@@ -1,0 +1,35 @@
+diff --git a/.npmignore b/.npmignore
+deleted file mode 100644
+index 1f6dc62a9f1540ab1d01f34710408858e0b28886..0000000000000000000000000000000000000000
+diff --git a/index.js b/index.js
+index 6f9a5b6dfb8c6151bb81a3fb3c225fe80319335c..77d4b1c2d477ee3bde9b981fbeaade3a4a78ef85 100644
+--- a/index.js
++++ b/index.js
+@@ -1,7 +1,7 @@
+ 
+ function untabify(text) {
+-	result = '';
+-	column = 0;
++	var result = '';
++	var column = 0;
+ 	for (var i = 0, len = text.length; i < len; i++) {
+ 		var c = text[i];
+ 		if (c == '\t') {
+@@ -274,7 +274,7 @@ function joinCodeBlocks(parts) {
+ 	for (var i = 0, len = parts.length; i < len; i++) {
+ 		var part = parts[i];
+ 		if (result.length) {
+-			prevIdx = result.length - 1;
++			var prevIdx = result.length - 1;
+ 			if (type(part) == 'codeBlock' && type(result[prevIdx]) == 'codeBlock') {
+ 				result[prevIdx] += '\n    \n' + part;
+ 				continue;
+@@ -305,7 +305,7 @@ var topLevelFilters = [
+ // TODO - replace 'phase' with 'filter' or similar more suitable
+ //
+ function mk(text) {
+-	result = text;
++	var result = text;
+ 
+ 	topLevelFilters.forEach(function(filter) {
+ 		result = filter(result);

@@ -12,13 +12,9 @@
     GLTFLoader
   } from 'three/examples/jsm/Addons.js';
   import { useThemeStore } from '@/stores/theme';
-  import { Stage } from './entities/Stage';
-  import MoebiusPass from './shaders/moebius';
-  import { ColorInterpolator } from './utils/ColorInterpolator';
-  import { NumericInterpolator } from './utils/NumericInterpolator';
-  import { LightManager } from './managers/LightManager';
-  import { BackCanvas } from './BackCanvasClass';
-  import { ToonShader } from './shaders/toon';
+  import { Stage } from '../entities/Stage';
+  import { NumericInterpolator } from '../utils/NumericInterpolator';
+  import { BackCanvas } from '../BackCanvasClass';
 
 
   const canvasRef = shallowRef<HTMLCanvasElement | null>(null)

@@ -9,13 +9,13 @@
 <script setup lang="ts">
 import * as THREE from 'three';
 import { onMounted, onUnmounted, ref, shallowRef } from 'vue';
-import { useThemeStore } from '../../stores/theme.ts';
-import { ColorInterpolator } from './utils/ColorInterpolator';
+import { useThemeStore } from '../../../stores/theme.ts';
+import { ColorInterpolator } from '../utils/ColorInterpolator';
 import { OrbitControls } from 'three-stdlib';
-import type { GLObject } from './entities/Terrarin.ts';
-import { Terrarin } from './entities/Terrarin.ts';
+import type { GLObject } from '../entities/Terrarin.ts';
+import { Terrarin } from '../entities/Terrarin.ts';
 import { GLTFLoader, DRACOLoader } from 'three-stdlib';
-import {LightHouseShader, LightConeShader} from './shaders/lighthouse.ts';
+import {LightHouseShader, LightConeShader} from '../shaders/lighthouse.ts';
 
 const themeStore = useThemeStore();
 const canvasRef = ref<HTMLCanvasElement | null>(null);
@@ -187,7 +187,7 @@ async function startUpStage(gl:GLObject) {
   const seaGeometry = new THREE.PlaneGeometry(seaWidth, seaWidth, 100, 100);
 
   // 导入波浪着色器
-  import('./shaders/waves').then(({ WaveShader }) => {
+  import('../shaders/waves').then(({ WaveShader }) => {
     const seaMaterial = new THREE.ShaderMaterial({
       uniforms: {
         ...WaveShader.uniforms,
