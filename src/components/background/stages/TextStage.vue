@@ -44,7 +44,7 @@
   let animationId: number;
   let textGroup: THREE.Group;
 
-  let ringData: { texture: THREE.CanvasTexture; speed: number }[] = [];
+  let ringData: { texture: THREE.CanvasTexture; speed: number; material: THREE.ShaderMaterial; hue: number; offset: number }[] = [];
   let zoomVelocity = 0;
   const ZOOM_FRICTION = 0.92;
   const ZOOM_SENSITIVITY = 0.003;
@@ -126,7 +126,6 @@
     controls = new OrbitControls(camera, renderer.domElement);
     controls.enableDamping = true;
     controls.enablePan = false;
-    controls.enableZoom = false;
     controls.minDistance = 0.5;
     controls.maxDistance = 3.8;
 
@@ -174,7 +173,7 @@
     for (let i = 0; i < maxLines; i++) {
       const y = -SPHERE_RADIUS + (i + 0.5) * lh;
       const r = sphereRadiusAtY(y, SPHERE_RADIUS);
-      if (r < 0.1) continue;
+      if (r < 1.0) continue;
 
       const circumference = 2 * Math.PI * r;
 
@@ -200,13 +199,48 @@
       const text = buildLineText(circumference);
       const canvas = createTextCanvas(text, circumference);
       const texture = new THREE.CanvasTexture(canvas);
-      texture.minFilter = THREE.LinearFilter;
+      texture.minFilter = THREE.LinearMipmapLinearFilter;
       texture.magFilter = THREE.LinearFilter;
+      texture.generateMipmaps = true;
+      texture.anisotropy = Math.min(renderer.capabilities.getMaxAnisotropy(), 4);
       texture.wrapS = THREE.RepeatWrapping;
       texture.wrapT = THREE.ClampToEdgeWrapping;
 
-      const mat = new THREE.MeshBasicMaterial({
-        map: texture,
+      const mat = new THREE.ShaderMaterial({
+        uniforms: {
+          map: { value: texture },
+          time: { value: 0 },
+          hue: { value: Math.random() },
+          offset: { value: 0 },
+        },
+        vertexShader: `
+          varying vec2 vUv;
+          void main() {
+            vUv = uv;
+            gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+          }
+        `,
+        fragmentShader: `
+          uniform float time;
+          uniform float hue;
+          uniform float offset;
+          uniform sampler2D map;
+          varying vec2 vUv;
+
+          void main() {
+            vec2 uv = vec2(vUv.x + offset, vUv.y);
+            vec4 tex = texture2D(map, uv);
+            if (tex.a < 0.01) discard;
+
+            float f1 = sin(time * 0.7 + hue * 6.28318) * 0.5 + 0.5;
+            float f2 = sin(time * 1.3 + hue * 12.56636) * 0.5 + 0.5;
+            float gradient = vUv.y;
+
+            float brightness = 0.4 + f1 * 0.35 + f2 * 0.1 + gradient * 0.15;
+
+            gl_FragColor = vec4(vec3(brightness) * tex.rgb, tex.a);
+          }
+        `,
         transparent: true,
         side: THREE.BackSide,
         depthWrite: false,
@@ -220,7 +254,8 @@
       group.add(mesh);
 
       const speed = (Math.random() - 0.5) * 0.0003;
-      ringData.push({ texture, speed });
+      const hue = Math.random();
+      ringData.push({ texture, speed, material: mat, hue, offset: 0 });
     }
 
     return group;
@@ -254,8 +289,12 @@
   function animate() {
     animationId = requestAnimationFrame(animate);
 
+    const time = performance.now() * 0.001;
+
     for (const ring of ringData) {
-      ring.texture.offset.x += ring.speed;
+      ring.offset += ring.speed;
+      ring.material.uniforms.offset.value = ring.offset;
+      ring.material.uniforms.time.value = time;
     }
 
     applyZoomInertia();
