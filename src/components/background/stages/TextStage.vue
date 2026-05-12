@@ -26,7 +26,6 @@
   import * as THREE from 'three';
   import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls';
   import { prepareWithSegments, layoutNextLine } from '@chenglou/pretext';
-  import type { PreparedTextWithSegments, LayoutCursor } from '@chenglou/pretext';
   import { sphereRadiusAtY } from '@/utils/textLayout';
 
   const container = ref<HTMLDivElement | null>(null);
@@ -34,7 +33,7 @@
   const config = reactive({
     fontSize: 8,
     spacing: 1.0,
-    pixelsPerUnit: 200,
+    pixelsPerUnit: 100,
     planesPerRing: 12,
   });
 
@@ -49,6 +48,14 @@
   let controls: OrbitControls;
   let animationId: number;
   let textGroup: THREE.Group;
+
+  let ringData: {
+    meshes: THREE.Mesh[];
+    baseAngles: number[];
+    y: number;
+    r: number;
+    speed: number;
+  }[] = [];
 
   let allSentences: string[] = [];
   let sentencePool: number[] = [];
@@ -79,39 +86,39 @@
     shufflePool();
   }
 
-  /**
-   * 从句子池随机抽取句子，拼接到接近 maxWidth，用 pretext 断行取第一行
-   * @param maxWidth - 世界单位宽度
-   */
+  const TEXT_QUALITY = 4;
+
   function buildLineText(maxWidth: number): string {
-    const font = `${config.fontSize}px sans-serif`;
-    // pretext 需要像素单位的宽度
-    const maxWidthPx = maxWidth * config.pixelsPerUnit;
+    const charWidth = config.fontSize * 0.55;
+    const neededChars = Math.ceil(maxWidth / charWidth);
 
     let text = '';
-    while (text.length * config.fontSize * 0.55 < maxWidthPx * 1.5) {
+    while (text.length < neededChars * 2) {
       if (sentencePool.length === 0) shufflePool();
       text += allSentences[sentencePool.shift()!];
     }
 
+    const scaledFontSize = config.fontSize * TEXT_QUALITY;
+    const canvasWidthPx = maxWidth * config.pixelsPerUnit * TEXT_QUALITY;
+    const font = `${scaledFontSize}px sans-serif`;
     const prepared = prepareWithSegments(text, font, { wordBreak: 'keep-all' });
-    const line = layoutNextLine(prepared, { segmentIndex: 0, graphemeIndex: 0 }, maxWidthPx);
-    return line ? line.text : text.substring(0, Math.ceil(maxWidthPx / (config.fontSize * 0.55)));
+    const line = layoutNextLine(prepared, { segmentIndex: 0, graphemeIndex: 0 }, canvasWidthPx);
+    return line ? line.text : text.substring(0, neededChars);
   }
 
   function createTextCanvas(text: string, width: number): HTMLCanvasElement {
-    const canvasW = Math.ceil(width * config.pixelsPerUnit);
-    const canvasH = Math.ceil(lineHeight.value * config.pixelsPerUnit);
+    const canvasW = Math.ceil(width * config.pixelsPerUnit * TEXT_QUALITY);
+    const canvasH = Math.ceil(lineHeight.value * config.pixelsPerUnit * TEXT_QUALITY);
     const canvas = document.createElement('canvas');
-    canvas.width = canvasW * DPR;
-    canvas.height = canvasH * DPR;
+    canvas.width = canvasW;
+    canvas.height = canvasH;
     const ctx = canvas.getContext('2d')!;
-    ctx.scale(DPR, DPR);
-    ctx.font = `${config.fontSize}px sans-serif`;
+    ctx.imageSmoothingEnabled = true;
+    ctx.imageSmoothingQuality = 'high';
+    const scaledFontSize = config.fontSize * TEXT_QUALITY;
+    ctx.font = `${scaledFontSize}px sans-serif`;
     ctx.fillStyle = '#ffffff';
     ctx.textBaseline = 'middle';
-    ctx.textAlign = 'left';
-    // 从左侧开始绘制文字
     ctx.fillText(text, 0, canvasH / 2);
     return canvas;
   }
@@ -133,7 +140,12 @@
     scene.add(new THREE.AmbientLight(0xffffff, 0.5));
 
     const sphereGeo = new THREE.SphereGeometry(SPHERE_RADIUS, 32, 32);
-    const sphereMat = new THREE.MeshBasicMaterial({ color: 0x333333, wireframe: false, transparent: true, opacity: 0 });
+    const sphereMat = new THREE.MeshBasicMaterial({
+      color: 0x333333,
+      wireframe: false,
+      transparent: true,
+      opacity: 0.3,
+    });
     scene.add(new THREE.Mesh(sphereGeo, sphereMat));
   }
 
@@ -149,14 +161,16 @@
       }
     });
     scene.remove(textGroup);
+    ringData = [];
   }
 
   function createTextPlanes(): THREE.Group {
     const group = new THREE.Group();
     const lh = lineHeight.value;
 
+    ringData = [];
+
     const maxLines = Math.floor((SPHERE_RADIUS * 2) / lh);
-    console.log(`[TextStage] 总纬度圈数: ${maxLines}`);
 
     for (let i = 0; i < maxLines; i++) {
       const y = -SPHERE_RADIUS + (i + 0.5) * lh;
@@ -164,43 +178,40 @@
       if (r < 0.1) continue;
 
       const circumference = 2 * Math.PI * r;
-      const planeWidth = circumference / config.planesPerRing * 1.05;
+      const planeWidth = (circumference / config.planesPerRing) * 1.05;
 
-      // 为这个纬度圈生成连续的文本
-      const lineText = buildLineText(circumference);
-      console.log(`[TextStage] 纬度圈 ${i}: y=${y.toFixed(2)}, r=${r.toFixed(2)}, 文本长度=${lineText.length}`);
+      const meshes: THREE.Mesh[] = [];
+      const baseAngles: number[] = [];
 
       for (let j = 0; j < config.planesPerRing; j++) {
         const theta = (j / config.planesPerRing) * Math.PI * 2;
 
-        // 计算当前平面应该显示的文本片段
-        const textStart = (j / config.planesPerRing) * lineText.length;
-        const textEnd = ((j + 1) / config.planesPerRing) * lineText.length;
-        const text = lineText.substring(Math.floor(textStart), Math.floor(textEnd));
-
+        const text = buildLineText(planeWidth);
         const canvas = createTextCanvas(text, planeWidth);
         const texture = new THREE.CanvasTexture(canvas);
         texture.minFilter = THREE.LinearFilter;
         texture.magFilter = THREE.LinearFilter;
 
         const geo = new THREE.PlaneGeometry(planeWidth, lh);
-        const mat = new THREE.MeshBasicMaterial({ map: texture, transparent: true, side: THREE.DoubleSide });
+        const mat = new THREE.MeshBasicMaterial({
+          map: texture,
+          transparent: true,
+          side: THREE.DoubleSide,
+        });
         const mesh = new THREE.Mesh(geo, mat);
 
-        // 定位到球面
-        mesh.position.set(r * Math.cos(theta), y, r * Math.sin(theta));
-
-        // 让平面朝向球心
-        mesh.lookAt(0, y, 0);
-        // 此时平面 Z 轴指向球心，X 轴指向切线方向
-        // 我们需要平面 Z 轴指向球外，所以翻转 Y 轴 180 度
-        mesh.rotateY(Math.PI);
+        mesh.position.set(r * Math.sin(theta), y, r * Math.cos(theta));
+        mesh.rotation.y = theta;
 
         group.add(mesh);
+        meshes.push(mesh);
+        baseAngles.push(theta);
       }
+
+      const speed = (Math.random() - 0.5) * 0.01;
+      ringData.push({ meshes, baseAngles, y, r, speed });
     }
 
-    console.log(`[TextStage] 总平面数: ${group.children.length}`);
     return group;
   }
 
@@ -210,9 +221,22 @@
     scene.add(textGroup);
   }
 
+  let elapsed = 0;
+
   function animate() {
     animationId = requestAnimationFrame(animate);
-    textGroup.rotation.y += 0.002;
+    elapsed += 1;
+
+    for (const ring of ringData) {
+      const offset = elapsed * ring.speed;
+      ring.meshes.forEach((mesh, j) => {
+        const newAngle = ring.baseAngles[j] + offset;
+        mesh.position.x = ring.r * Math.sin(newAngle);
+        mesh.position.z = ring.r * Math.cos(newAngle);
+        mesh.rotation.y = newAngle;
+      });
+    }
+
     controls.update();
     renderer.render(scene, camera);
   }
@@ -234,7 +258,10 @@
 
   watch(
     () => [config.fontSize, config.spacing, config.pixelsPerUnit, config.planesPerRing],
-    () => rebuildTextGroup()
+    () => {
+      elapsed = 0;
+      rebuildTextGroup();
+    }
   );
 
   onMounted(async () => {
@@ -274,8 +301,6 @@
     background: rgba(0, 0, 0, 0.6);
     padding: 12px;
     border-radius: 8px;
-    display: flex;
-    flex-direction: column;
     gap: 6px;
     z-index: 10;
     color: #fff;
