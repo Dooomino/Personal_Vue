@@ -129,8 +129,11 @@
       wireframe: true,
       transparent: true,
       opacity: 0.3,
+      depthWrite: false,
     });
-    scene.add(new THREE.Mesh(sphereGeo, sphereMat));
+    const sphereMesh = new THREE.Mesh(sphereGeo, sphereMat);
+    sphereMesh.renderOrder = 0;
+    scene.add(sphereMesh);
   }
 
   function disposeTextGroup() {
@@ -194,12 +197,17 @@
         map: texture,
         transparent: true,
         side: THREE.DoubleSide,
+        depthWrite: false,
+        polygonOffset: true,
+        polygonOffsetFactor: -1,
+        polygonOffsetUnits: -1,
       });
 
       const mesh = new THREE.Mesh(geo, mat);
+      mesh.renderOrder = 1;
       group.add(mesh);
 
-      const speed = (Math.random() - 0.5) * 0.003;
+      const speed = (Math.random() - 0.5) * 0.0003;
       ringData.push({ texture, speed });
     }
 
