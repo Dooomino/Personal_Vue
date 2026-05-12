@@ -1,6 +1,6 @@
 <template>
   <div class="text-stage" ref="container">
-    <div class="controls" @mousedown.stop>
+    <!-- <div class="controls" @mousedown.stop>
       <label>
         字号 {{ config.fontSize }}px
         <input type="range" v-model.number="config.fontSize" min="6" max="20" step="1" />
@@ -13,11 +13,7 @@
         清晰度 {{ config.pixelsPerUnit }}
         <input type="range" v-model.number="config.pixelsPerUnit" min="30" max="200" step="10" />
       </label>
-      <label>
-        环密度 {{ config.planesPerRing }}
-        <input type="range" v-model.number="config.planesPerRing" min="4" max="24" step="2" />
-      </label>
-    </div>
+    </div> -->
   </div>
 </template>
 
@@ -25,7 +21,6 @@
   import { onMounted, onUnmounted, reactive, ref, computed, watch } from 'vue';
   import * as THREE from 'three';
   import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls';
-  import { prepareWithSegments, layoutNextLine } from '@chenglou/pretext';
   import { sphereRadiusAtY } from '@/utils/textLayout';
 
   const container = ref<HTMLDivElement | null>(null);
@@ -34,13 +29,13 @@
     fontSize: 8,
     spacing: 1.0,
     pixelsPerUnit: 100,
-    planesPerRing: 12,
   });
 
   const lineHeight = computed(() => (config.fontSize * config.spacing) / config.pixelsPerUnit);
 
   const SPHERE_RADIUS = 2;
   const DPR = Math.min(window.devicePixelRatio, 2);
+  const TEXT_QUALITY = 4;
 
   let scene: THREE.Scene;
   let camera: THREE.PerspectiveCamera;
@@ -49,13 +44,7 @@
   let animationId: number;
   let textGroup: THREE.Group;
 
-  let ringData: {
-    meshes: THREE.Mesh[];
-    baseAngles: number[];
-    y: number;
-    r: number;
-    speed: number;
-  }[] = [];
+  let ringData: { texture: THREE.CanvasTexture; speed: number }[] = [];
 
   let allSentences: string[] = [];
   let sentencePool: number[] = [];
@@ -86,24 +75,19 @@
     shufflePool();
   }
 
-  const TEXT_QUALITY = 4;
-
-  function buildLineText(maxWidth: number): string {
-    const charWidth = config.fontSize * 0.55;
-    const neededChars = Math.ceil(maxWidth / charWidth);
+  function buildLineText(circumference: number): string {
+    const scaledFontSize = config.fontSize * TEXT_QUALITY;
+    const charWidthPx = scaledFontSize;
+    const canvasWidthPx = circumference * config.pixelsPerUnit * TEXT_QUALITY;
+    const neededChars = Math.ceil(canvasWidthPx / charWidthPx) + 5;
 
     let text = '';
-    while (text.length < neededChars * 2) {
+    while (text.length < neededChars) {
       if (sentencePool.length === 0) shufflePool();
       text += allSentences[sentencePool.shift()!];
     }
 
-    const scaledFontSize = config.fontSize * TEXT_QUALITY;
-    const canvasWidthPx = maxWidth * config.pixelsPerUnit * TEXT_QUALITY;
-    const font = `${scaledFontSize}px sans-serif`;
-    const prepared = prepareWithSegments(text, font, { wordBreak: 'keep-all' });
-    const line = layoutNextLine(prepared, { segmentIndex: 0, graphemeIndex: 0 }, canvasWidthPx);
-    return line ? line.text : text.substring(0, neededChars);
+    return text;
   }
 
   function createTextCanvas(text: string, width: number): HTMLCanvasElement {
@@ -142,7 +126,7 @@
     const sphereGeo = new THREE.SphereGeometry(SPHERE_RADIUS, 32, 32);
     const sphereMat = new THREE.MeshBasicMaterial({
       color: 0x333333,
-      wireframe: false,
+      wireframe: true,
       transparent: true,
       opacity: 0.3,
     });
@@ -178,38 +162,45 @@
       if (r < 0.1) continue;
 
       const circumference = 2 * Math.PI * r;
-      const planeWidth = (circumference / config.planesPerRing) * 1.05;
 
-      const meshes: THREE.Mesh[] = [];
-      const baseAngles: number[] = [];
+      // 计算该纬度带的 theta 范围（球面坐标）
+      const yTop = Math.min(y + lh / 2, SPHERE_RADIUS - 0.001);
+      const yBot = Math.max(y - lh / 2, -SPHERE_RADIUS + 0.001);
+      const thetaTop = Math.acos(yTop / SPHERE_RADIUS);
+      const thetaBot = Math.acos(yBot / SPHERE_RADIUS);
+      const thetaLength = Math.max(thetaBot - thetaTop, 0.001);
 
-      for (let j = 0; j < config.planesPerRing; j++) {
-        const theta = (j / config.planesPerRing) * Math.PI * 2;
+      // 创建球面弧形切片（完整360°环绕，文字真正贴合球面）
+      const geo = new THREE.SphereGeometry(
+        SPHERE_RADIUS + 0.005,
+        64,
+        1,
+        0,
+        Math.PI * 2,
+        thetaTop,
+        thetaLength
+      );
 
-        const text = buildLineText(planeWidth);
-        const canvas = createTextCanvas(text, planeWidth);
-        const texture = new THREE.CanvasTexture(canvas);
-        texture.minFilter = THREE.LinearFilter;
-        texture.magFilter = THREE.LinearFilter;
+      // 生成填充该环周长的文字
+      const text = buildLineText(circumference);
+      const canvas = createTextCanvas(text, circumference);
+      const texture = new THREE.CanvasTexture(canvas);
+      texture.minFilter = THREE.LinearFilter;
+      texture.magFilter = THREE.LinearFilter;
+      texture.wrapS = THREE.RepeatWrapping;
+      texture.wrapT = THREE.ClampToEdgeWrapping;
 
-        const geo = new THREE.PlaneGeometry(planeWidth, lh);
-        const mat = new THREE.MeshBasicMaterial({
-          map: texture,
-          transparent: true,
-          side: THREE.DoubleSide,
-        });
-        const mesh = new THREE.Mesh(geo, mat);
+      const mat = new THREE.MeshBasicMaterial({
+        map: texture,
+        transparent: true,
+        side: THREE.DoubleSide,
+      });
 
-        mesh.position.set(r * Math.sin(theta), y, r * Math.cos(theta));
-        mesh.rotation.y = theta;
+      const mesh = new THREE.Mesh(geo, mat);
+      group.add(mesh);
 
-        group.add(mesh);
-        meshes.push(mesh);
-        baseAngles.push(theta);
-      }
-
-      const speed = (Math.random() - 0.5) * 0.01;
-      ringData.push({ meshes, baseAngles, y, r, speed });
+      const speed = (Math.random() - 0.5) * 0.003;
+      ringData.push({ texture, speed });
     }
 
     return group;
@@ -221,20 +212,11 @@
     scene.add(textGroup);
   }
 
-  let elapsed = 0;
-
   function animate() {
     animationId = requestAnimationFrame(animate);
-    elapsed += 1;
 
     for (const ring of ringData) {
-      const offset = elapsed * ring.speed;
-      ring.meshes.forEach((mesh, j) => {
-        const newAngle = ring.baseAngles[j] + offset;
-        mesh.position.x = ring.r * Math.sin(newAngle);
-        mesh.position.z = ring.r * Math.cos(newAngle);
-        mesh.rotation.y = newAngle;
-      });
+      ring.texture.offset.x += ring.speed;
     }
 
     controls.update();
@@ -257,11 +239,8 @@
   }
 
   watch(
-    () => [config.fontSize, config.spacing, config.pixelsPerUnit, config.planesPerRing],
-    () => {
-      elapsed = 0;
-      rebuildTextGroup();
-    }
+    () => [config.fontSize, config.spacing, config.pixelsPerUnit],
+    () => rebuildTextGroup()
   );
 
   onMounted(async () => {
