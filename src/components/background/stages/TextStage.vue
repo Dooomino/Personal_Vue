@@ -33,7 +33,7 @@
 
   const lineHeight = computed(() => (config.fontSize * config.spacing) / config.pixelsPerUnit);
 
-  const SPHERE_RADIUS = 2;
+  const SPHERE_RADIUS = 4;
   const DPR = Math.min(window.devicePixelRatio, 2);
   const TEXT_QUALITY = 4;
 
@@ -45,6 +45,9 @@
   let textGroup: THREE.Group;
 
   let ringData: { texture: THREE.CanvasTexture; speed: number }[] = [];
+  let zoomVelocity = 0;
+  const ZOOM_FRICTION = 0.92;
+  const ZOOM_SENSITIVITY = 0.003;
 
   let allSentences: string[] = [];
   let sentencePool: number[] = [];
@@ -103,6 +106,8 @@
     ctx.font = `${scaledFontSize}px sans-serif`;
     ctx.fillStyle = '#ffffff';
     ctx.textBaseline = 'middle';
+    ctx.scale(-1, 1);
+    ctx.translate(-canvasW, 0);
     ctx.fillText(text, 0, canvasH / 2);
     return canvas;
   }
@@ -111,7 +116,7 @@
     scene = new THREE.Scene();
 
     camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
-    camera.position.z = 5;
+    camera.position.set(0, 0, 0.5);
 
     renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
     renderer.setSize(window.innerWidth, window.innerHeight);
@@ -120,6 +125,12 @@
 
     controls = new OrbitControls(camera, renderer.domElement);
     controls.enableDamping = true;
+    controls.enablePan = false;
+    controls.enableZoom = false;
+    controls.minDistance = 0.5;
+    controls.maxDistance = 3.8;
+
+    renderer.domElement.addEventListener('wheel', onWheel, { passive: false });
 
     scene.add(new THREE.AmbientLight(0xffffff, 0.5));
 
@@ -128,7 +139,8 @@
       color: 0x333333,
       wireframe: true,
       transparent: true,
-      opacity: 0.3,
+      opacity: 0.5,
+      side: THREE.BackSide,
       depthWrite: false,
     });
     const sphereMesh = new THREE.Mesh(sphereGeo, sphereMat);
@@ -196,7 +208,7 @@
       const mat = new THREE.MeshBasicMaterial({
         map: texture,
         transparent: true,
-        side: THREE.DoubleSide,
+        side: THREE.BackSide,
         depthWrite: false,
         polygonOffset: true,
         polygonOffsetFactor: -1,
@@ -220,6 +232,25 @@
     scene.add(textGroup);
   }
 
+  function onWheel(e: WheelEvent) {
+    e.preventDefault();
+    zoomVelocity += e.deltaY * ZOOM_SENSITIVITY;
+  }
+
+  function applyZoomInertia() {
+    if (Math.abs(zoomVelocity) < 0.0001) {
+      zoomVelocity = 0;
+      return;
+    }
+
+    const dir = camera.position.clone().normalize();
+    const dist = camera.position.length();
+    const newDist = Math.max(controls.minDistance, Math.min(controls.maxDistance, dist + zoomVelocity));
+
+    camera.position.copy(dir.multiplyScalar(newDist));
+    zoomVelocity *= ZOOM_FRICTION;
+  }
+
   function animate() {
     animationId = requestAnimationFrame(animate);
 
@@ -227,6 +258,7 @@
       ring.texture.offset.x += ring.speed;
     }
 
+    applyZoomInertia();
     controls.update();
     renderer.render(scene, camera);
   }
@@ -241,6 +273,7 @@
   function cleanup() {
     if (animationId) cancelAnimationFrame(animationId);
     if (renderer && container.value) {
+      renderer.domElement.removeEventListener('wheel', onWheel);
       container.value.removeChild(renderer.domElement);
       renderer.dispose();
     }
