@@ -1,58 +1,66 @@
 <template>
-  <div class="text-stage">
-    <!-- Three.js 渲染容器 -->
-    <div ref="container" class="canvas-container"></div>
+  <div class="text-stage" ref="container">
+    <div class="controls" @mousedown.stop>
+      <label>
+        字号 {{ config.fontSize }}px
+        <input type="range" v-model.number="config.fontSize" min="6" max="20" step="1" />
+      </label>
+      <label>
+        间距 ×{{ config.spacing.toFixed(1) }}
+        <input type="range" v-model.number="config.spacing" min="1.0" max="2.0" step="0.1" />
+      </label>
+      <label>
+        清晰度 {{ config.pixelsPerUnit }}
+        <input type="range" v-model.number="config.pixelsPerUnit" min="30" max="200" step="10" />
+      </label>
+      <label>
+        环密度 {{ config.planesPerRing }}
+        <input type="range" v-model.number="config.planesPerRing" min="4" max="24" step="2" />
+      </label>
+    </div>
   </div>
 </template>
+
 <script setup lang="ts">
-  import { prepareWithSegments, layoutWithLines } from '@chenglou/pretext';
+  import { onMounted, onUnmounted, reactive, ref, computed, watch } from 'vue';
   import * as THREE from 'three';
-  import { onMounted, onUnmounted, ref } from 'vue';
+  import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls';
+  import { prepareWithSegments, layoutNextLine } from '@chenglou/pretext';
+  import type { PreparedTextWithSegments, LayoutCursor } from '@chenglou/pretext';
+  import { sphereRadiusAtY } from '@/utils/textLayout';
 
   const container = ref<HTMLDivElement | null>(null);
-  const baseScrollSpeed = 2.5;
+
+  const config = reactive({
+    fontSize: 8,
+    spacing: 1.0,
+    pixelsPerUnit: 200,
+    planesPerRing: 12,
+  });
+
+  const lineHeight = computed(() => (config.fontSize * config.spacing) / config.pixelsPerUnit);
+
+  const SPHERE_RADIUS = 2;
+  const DPR = Math.min(window.devicePixelRatio, 2);
 
   let scene: THREE.Scene;
   let camera: THREE.PerspectiveCamera;
   let renderer: THREE.WebGLRenderer;
+  let controls: OrbitControls;
   let animationId: number;
-
-  interface TextPlaneData {
-    mesh: THREE.Mesh;
-    material: THREE.MeshBasicMaterial;
-    texture: THREE.CanvasTexture;
-    textContent: string;
-    scrollPosition: number;
-    speed: number;
-    opacity: number;
-    fadeState: 'fadeIn' | 'visible' | 'fadeOut';
-  }
-  let textPlanes: TextPlaneData[] = [];
-  let totalPlaneCount = 0;
-
-  let offscreenCanvas: HTMLCanvasElement;
-  let offscreenCtx: CanvasRenderingContext2D | null;
-
-  const font = '14px sans-serif';
-  const lineHeight = 16;
-  const dpr = Math.min(window.devicePixelRatio, 2);
+  let textGroup: THREE.Group;
 
   let allSentences: string[] = [];
-  // 全局洗牌池：保证每次调用拿到不同的句子
   let sentencePool: number[] = [];
 
   function shufflePool() {
-    const total = allSentences.length;
-    sentencePool = Array.from({ length: total }, (_, i) => i);
-    for (let i = total - 1; i > 0; i--) {
+    sentencePool = Array.from({ length: allSentences.length }, (_, i) => i);
+    for (let i = sentencePool.length - 1; i > 0; i--) {
       const j = Math.floor(Math.random() * (i + 1));
       [sentencePool[i], sentencePool[j]] = [sentencePool[j], sentencePool[i]];
     }
   }
 
-  /**
-   * 加载所有诗句并展平为句子数组（只执行一次）
-   */
   async function loadAllSentences() {
     const jsonFile = await import('@/assets/text/poet.json');
     const poems = jsonFile.default as Record<string, string>;
@@ -69,247 +77,172 @@
 
     allSentences = result;
     shufflePool();
-    console.log(`已加载 ${allSentences.length} 条诗句`);
   }
 
   /**
-   * 根据屏幕宽度计算一行能容纳多少句
+   * 从句子池随机抽取句子，拼接到接近 maxWidth，用 pretext 断行取第一行
+   * @param maxWidth - 世界单位宽度
    */
-  function calculateSentencesPerLine(): number {
-    if (!offscreenCtx) initOffscreenCanvas();
-    offscreenCtx!.font = font;
-    const avgCharWidth = offscreenCtx!.measureText('国').width;
-    const avgSentenceLen = 8;
-    const screenWidth = window.innerWidth;
-    return Math.ceil(screenWidth / (avgCharWidth * avgSentenceLen));
+  function buildLineText(maxWidth: number): string {
+    const font = `${config.fontSize}px sans-serif`;
+    // pretext 需要像素单位的宽度
+    const maxWidthPx = maxWidth * config.pixelsPerUnit;
+
+    let text = '';
+    while (text.length * config.fontSize * 0.55 < maxWidthPx * 1.5) {
+      if (sentencePool.length === 0) shufflePool();
+      text += allSentences[sentencePool.shift()!];
+    }
+
+    const prepared = prepareWithSegments(text, font, { wordBreak: 'keep-all' });
+    const line = layoutNextLine(prepared, { segmentIndex: 0, graphemeIndex: 0 }, maxWidthPx);
+    return line ? line.text : text.substring(0, Math.ceil(maxWidthPx / (config.fontSize * 0.55)));
   }
 
-  function getRandomSentences(count: number): string {
-    if (sentencePool.length < count) shufflePool();
-    const picked = sentencePool.splice(0, count);
-    if (sentencePool.length < count) shufflePool();
-    return picked.map(i => allSentences[i]).join('');
+  function createTextCanvas(text: string, width: number): HTMLCanvasElement {
+    const canvasW = Math.ceil(width * config.pixelsPerUnit);
+    const canvasH = Math.ceil(lineHeight.value * config.pixelsPerUnit);
+    const canvas = document.createElement('canvas');
+    canvas.width = canvasW * DPR;
+    canvas.height = canvasH * DPR;
+    const ctx = canvas.getContext('2d')!;
+    ctx.scale(DPR, DPR);
+    ctx.font = `${config.fontSize}px sans-serif`;
+    ctx.fillStyle = '#ffffff';
+    ctx.textBaseline = 'middle';
+    ctx.textAlign = 'left';
+    // 从左侧开始绘制文字
+    ctx.fillText(text, 0, canvasH / 2);
+    return canvas;
   }
 
-  function initOffscreenCanvas() {
-    offscreenCanvas = document.createElement('canvas');
-    offscreenCtx = offscreenCanvas.getContext('2d');
-  }
-
-  /**
-   * 创建单行长横线 Canvas 纹理（DPR 高清渲染）
-   */
-  function createTextTexture(textContent: string): { texture: THREE.CanvasTexture; width: number; height: number } {
-    if (!offscreenCtx) initOffscreenCanvas();
-
-    // pretext 测量整行宽度（whiteSpace: pre 防止换行）
-    const prepared = prepareWithSegments(textContent, font, { whiteSpace: 'pre' });
-    const layout = layoutWithLines(prepared, Infinity, lineHeight);
-    const lineWidth = layout.lines.length > 0 ? layout.lines[0].width : 0;
-
-    const logicalWidth = lineWidth;
-    const logicalHeight = lineHeight;
-
-    offscreenCanvas.width = logicalWidth * dpr;
-    offscreenCanvas.height = logicalHeight * dpr;
-
-    offscreenCtx!.setTransform(dpr, 0, 0, dpr, 0, 0);
-    offscreenCtx!.clearRect(0, 0, logicalWidth, logicalHeight);
-
-    offscreenCtx!.font = font;
-    offscreenCtx!.fillStyle = '#ffffff';
-    offscreenCtx!.textBaseline = 'top';
-
-    // 单行绘制
-    offscreenCtx!.fillText(textContent, 0, 0);
-
-    const texture = new THREE.CanvasTexture(offscreenCanvas);
-    texture.minFilter = THREE.LinearFilter;
-    texture.magFilter = THREE.LinearFilter;
-    texture.colorSpace = THREE.SRGBColorSpace;
-
-    return { texture, width: logicalWidth, height: logicalHeight };
-  }
-
-  function initThreeJS() {
-    if (!container.value) return;
-
+  function initScene() {
     scene = new THREE.Scene();
 
-    const aspect = window.innerWidth / window.innerHeight;
-    camera = new THREE.PerspectiveCamera(75, aspect, 0.1, 1000);
+    camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
     camera.position.z = 5;
 
     renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
     renderer.setSize(window.innerWidth, window.innerHeight);
-    renderer.setPixelRatio(dpr);
-    container.value.appendChild(renderer.domElement);
+    renderer.setPixelRatio(DPR);
+    container.value!.appendChild(renderer.domElement);
 
-    const ambientLight = new THREE.AmbientLight(0xffffff, 1);
-    scene.add(ambientLight);
+    controls = new OrbitControls(camera, renderer.domElement);
+    controls.enableDamping = true;
+
+    scene.add(new THREE.AmbientLight(0xffffff, 0.5));
+
+    const sphereGeo = new THREE.SphereGeometry(SPHERE_RADIUS, 32, 32);
+    const sphereMat = new THREE.MeshBasicMaterial({ color: 0x333333, wireframe: false, transparent: true, opacity: 0 });
+    scene.add(new THREE.Mesh(sphereGeo, sphereMat));
   }
 
-  async function createSingleTextPlane(index: number, totalPlanes: number): Promise<TextPlaneData> {
-    const planeScale = 0.01;
-    const screenHeight = window.innerHeight * planeScale;
-    const spacing = screenHeight / (totalPlanes + 1);
-
-    const sentencesPerLine = calculateSentencesPerLine();
-    const textContent = getRandomSentences(sentencesPerLine);
-
-    const { texture, width, height } = createTextTexture(textContent);
-
-    const geometry = new THREE.PlaneGeometry(width * planeScale, height * planeScale);
-
-    const material = new THREE.MeshBasicMaterial({
-      map: texture,
-      transparent: true,
-      opacity: 0,
-      side: THREE.DoubleSide,
+  function disposeTextGroup() {
+    if (!textGroup) return;
+    textGroup.traverse(obj => {
+      if (obj instanceof THREE.Mesh) {
+        obj.geometry.dispose();
+        if (obj.material instanceof THREE.MeshBasicMaterial) {
+          obj.material.map?.dispose();
+          obj.material.dispose();
+        }
+      }
     });
-
-    const mesh = new THREE.Mesh(geometry, material);
-
-    const screenWidth = window.innerWidth * planeScale;
-    const scrollPosition = screenWidth + (width * planeScale) / 2;
-    mesh.position.x = scrollPosition;
-
-    const yPosition = -screenHeight / 2 + spacing * (index + 1);
-    mesh.position.y = yPosition;
-
-    scene.add(mesh);
-
-    const speed = baseScrollSpeed + (Math.random() - 0.5) * 0.5;
-
-    return {
-      mesh,
-      material,
-      texture,
-      textContent,
-      scrollPosition,
-      speed,
-      opacity: 0,
-      fadeState: 'fadeIn',
-    };
+    scene.remove(textGroup);
   }
 
-  function calculatePlaneCount(): number {
-    const minSpacing = lineHeight * 2; // 每个平面至少需要 2 行高度的间距
-    return Math.floor(window.innerHeight / minSpacing);
-  }
+  function createTextPlanes(): THREE.Group {
+    const group = new THREE.Group();
+    const lh = lineHeight.value;
 
-  async function initTextPlanes() {
-    totalPlaneCount = calculatePlaneCount();
+    const maxLines = Math.floor((SPHERE_RADIUS * 2) / lh);
+    console.log(`[TextStage] 总纬度圈数: ${maxLines}`);
 
-    const planes: TextPlaneData[] = [];
-    for (let i = 0; i < totalPlaneCount; i++) {
-      planes.push(await createSingleTextPlane(i, totalPlaneCount));
+    for (let i = 0; i < maxLines; i++) {
+      const y = -SPHERE_RADIUS + (i + 0.5) * lh;
+      const r = sphereRadiusAtY(y, SPHERE_RADIUS);
+      if (r < 0.1) continue;
+
+      const circumference = 2 * Math.PI * r;
+      const planeWidth = circumference / config.planesPerRing * 1.05;
+
+      // 为这个纬度圈生成连续的文本
+      const lineText = buildLineText(circumference);
+      console.log(`[TextStage] 纬度圈 ${i}: y=${y.toFixed(2)}, r=${r.toFixed(2)}, 文本长度=${lineText.length}`);
+
+      for (let j = 0; j < config.planesPerRing; j++) {
+        const theta = (j / config.planesPerRing) * Math.PI * 2;
+
+        // 计算当前平面应该显示的文本片段
+        const textStart = (j / config.planesPerRing) * lineText.length;
+        const textEnd = ((j + 1) / config.planesPerRing) * lineText.length;
+        const text = lineText.substring(Math.floor(textStart), Math.floor(textEnd));
+
+        const canvas = createTextCanvas(text, planeWidth);
+        const texture = new THREE.CanvasTexture(canvas);
+        texture.minFilter = THREE.LinearFilter;
+        texture.magFilter = THREE.LinearFilter;
+
+        const geo = new THREE.PlaneGeometry(planeWidth, lh);
+        const mat = new THREE.MeshBasicMaterial({ map: texture, transparent: true, side: THREE.DoubleSide });
+        const mesh = new THREE.Mesh(geo, mat);
+
+        // 定位到球面
+        mesh.position.set(r * Math.cos(theta), y, r * Math.sin(theta));
+
+        // 让平面朝向球心
+        mesh.lookAt(0, y, 0);
+        // 此时平面 Z 轴指向球心，X 轴指向切线方向
+        // 我们需要平面 Z 轴指向球外，所以翻转 Y 轴 180 度
+        mesh.rotateY(Math.PI);
+
+        group.add(mesh);
+      }
     }
 
-    const scale = 0.01;
-    const screenWidth = window.innerWidth * scale;
-    const basePosition = screenWidth + 5;
-
-    planes.forEach((planeData, index) => {
-      planeData.scrollPosition = basePosition;
-      planeData.mesh.position.x = basePosition;
-
-      const screenHeight = window.innerHeight * scale;
-      const spacing = screenHeight / (totalPlaneCount + 1);
-      planeData.mesh.position.y = -screenHeight / 2 + spacing * (index + 1);
-
-      textPlanes.push(planeData);
-    });
-
-    console.log(`已创建 ${totalPlaneCount} 个文字平面`);
+    console.log(`[TextStage] 总平面数: ${group.children.length}`);
+    return group;
   }
 
-  async function replaceTextPlane(index: number) {
-    const oldPlane = textPlanes[index];
-
-    scene.remove(oldPlane.mesh);
-    oldPlane.mesh.geometry.dispose();
-    oldPlane.material.dispose();
-    oldPlane.texture.dispose();
-
-    const newPlane = await createSingleTextPlane(index, totalPlaneCount);
-
-    const scale = 0.01;
-    const screenWidth = window.innerWidth * scale;
-    newPlane.scrollPosition = screenWidth + 5;
-    newPlane.mesh.position.x = newPlane.scrollPosition;
-    newPlane.mesh.position.y = oldPlane.mesh.position.y;
-
-    textPlanes[index] = newPlane;
+  function rebuildTextGroup() {
+    disposeTextGroup();
+    textGroup = createTextPlanes();
+    scene.add(textGroup);
   }
 
   function animate() {
     animationId = requestAnimationFrame(animate);
-
-    const scale = 0.01;
-    const screenWidth = window.innerWidth * scale;
-
-    textPlanes.forEach((planeData, index) => {
-      planeData.scrollPosition -= planeData.speed * 0.01;
-      planeData.mesh.position.x = planeData.scrollPosition;
-
-      const textWidth = (planeData.mesh.geometry as THREE.PlaneGeometry).parameters.width;
-      const enterProgress = 1 - Math.max(0, Math.min(1, (planeData.scrollPosition - (screenWidth - textWidth)) / 100));
-      const exitProgress = Math.max(0, Math.min(1, (-screenWidth - planeData.scrollPosition) / 100));
-
-      if (enterProgress > 0 && enterProgress < 1) {
-        planeData.opacity = enterProgress;
-        planeData.fadeState = 'fadeIn';
-      } else if (exitProgress > 0 && exitProgress < 1) {
-        planeData.opacity = 1 - exitProgress;
-        planeData.fadeState = 'fadeOut';
-      } else {
-        planeData.opacity = 1;
-        planeData.fadeState = 'visible';
-      }
-
-      planeData.material.opacity = planeData.opacity;
-
-      if (planeData.scrollPosition < -screenWidth - textWidth / 2) {
-        replaceTextPlane(index);
-      }
-    });
-
+    textGroup.rotation.y += 0.002;
+    controls.update();
     renderer.render(scene, camera);
   }
 
   function handleResize() {
     if (!camera || !renderer) return;
-
     camera.aspect = window.innerWidth / window.innerHeight;
     camera.updateProjectionMatrix();
     renderer.setSize(window.innerWidth, window.innerHeight);
   }
 
   function cleanup() {
-    if (animationId) {
-      cancelAnimationFrame(animationId);
-    }
+    if (animationId) cancelAnimationFrame(animationId);
     if (renderer && container.value) {
       container.value.removeChild(renderer.domElement);
       renderer.dispose();
     }
-
-    textPlanes.forEach(planeData => {
-      planeData.mesh.geometry.dispose();
-      planeData.material.dispose();
-      planeData.texture.dispose();
-      scene.remove(planeData.mesh);
-    });
-    textPlanes = [];
   }
+
+  watch(
+    () => [config.fontSize, config.spacing, config.pixelsPerUnit, config.planesPerRing],
+    () => rebuildTextGroup()
+  );
 
   onMounted(async () => {
     try {
       await loadAllSentences();
-      initThreeJS();
-      initOffscreenCanvas();
-      await initTextPlanes();
+      initScene();
+      textGroup = createTextPlanes();
+      scene.add(textGroup);
       animate();
       window.addEventListener('resize', handleResize);
     } catch (error) {
@@ -324,14 +257,41 @@
 </script>
 
 <style scoped>
-.text-stage {
-  width: 100%;
-  height: 100%;
-  position: relative;
-}
+  .text-stage {
+    width: 100%;
+    height: 100%;
+    position: relative;
+  }
 
-.canvas-container {
-  width: 100%;
-  height: 100%;
-}
+  .controls {
+    position: absolute;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    align-items: center;
+    top: 12px;
+    right: 12px;
+    background: rgba(0, 0, 0, 0.6);
+    padding: 12px;
+    border-radius: 8px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    z-index: 10;
+    color: #fff;
+    font-size: 12px;
+    height: 20% !important;
+  }
+
+  .controls label {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    white-space: nowrap;
+  }
+
+  .controls input[type='range'] {
+    width: 120px;
+    cursor: pointer;
+  }
 </style>
