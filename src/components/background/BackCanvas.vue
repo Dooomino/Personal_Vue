@@ -12,7 +12,7 @@
         :key="index"
         :is="comp"
       /> -->
-      <TextStage />
+      <!-- <TextStage /> -->
     </div>
 
   </div>
