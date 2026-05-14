@@ -265,7 +265,7 @@
         // stage.add(indoorLightHelper, 'indoorLightHelper');
 
       }
-      setUpGUI()
+      // setUpGUI()
 
       // 初始化后期处理效果
       backCanvasRef.value?.initPostProcessing();

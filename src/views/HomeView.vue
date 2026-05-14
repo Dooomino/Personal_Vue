@@ -8,7 +8,7 @@
     <!-- 主内容区域：flex-1 自动填充剩余空间 -->
     <main class="flex-1 w-full relative overflow-hidden">
       <!-- 背景层：BackCanvas -->
-      <div class="absolute inset-0 z-0">
+      <div class="back-canvas absolute inset-0 z-0">
         <BackCanvas />
       </div>
       <!-- 内容层：MainContainer -->
@@ -32,4 +32,8 @@ defineOptions({
 });
 
 </script>
-<style scoped></style>
+<style scoped>
+  .back-canvas {
+    filter: blur(3px);
+  }
+</style>

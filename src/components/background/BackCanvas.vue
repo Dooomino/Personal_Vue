@@ -7,11 +7,11 @@
     @blur="isLostFocus = true"
     @click="isLostFocus = false">
     <div class="canvas-conatin">
-      <!-- <component
+      <component
         v-for="(comp, index) in loadedComponents"
         :key="index"
         :is="comp"
-      /> -->
+      />
       <!-- <TextStage /> -->
     </div>
 
@@ -19,24 +19,46 @@
 </template>
 <script setup lang="ts">
   import { onMounted, ref, shallowRef } from 'vue';
-  import TextStage from './stages/TextStage.vue';
-  const canvasModules = import.meta.glob<{ setup?: Function }>('./stages/*.vue');
+  import type { Component } from 'vue';
+
+  const canvasModules = import.meta.glob<{ default: Component }>('./stages/*.vue');
 
   const TESTING = false
   const isLostFocus = ref(true)
-  const loadedComponents = shallowRef<any[]>([])
+  const loadedComponents = shallowRef<Component[]>([])
 
-  onMounted(async () => {
+  const excludeModules = ['RoomStage']
+
+  // 加载随机组件，带重试机制
+  async function loadRandomComponent(maxRetries = 10) {
     const paths = Object.keys(canvasModules)
-    const randomPath = paths[Math.floor(Math.random() * paths.length)]
-    try {
-      const mod = await canvasModules[randomPath]()
-      if (mod.default) {
-        loadedComponents.value = [mod.default]
+
+    for (let i = 0; i < maxRetries; i++) {
+      const randomPath = paths[Math.floor(Math.random() * paths.length)]
+      try {
+        const mod = await canvasModules[randomPath]()
+        if (mod.default) {
+          // 从路径中提取组件名称（例如：'./stages/RoomStage.vue' -> 'RoomStage'）
+          const componentName = randomPath.match(/\/([^/]+)\.vue$/)?.[1] || 'Unknown'
+
+          if (!excludeModules.includes(componentName)) {
+            loadedComponents.value = [mod.default]
+            console.log(`Loaded component: ${componentName}`)
+            return // 成功加载，退出
+          } else {
+            console.log(`Excluded component: ${componentName}, retrying... (${i + 1}/${maxRetries})`)
+          }
+        }
+      } catch (e) {
+        console.warn(`Failed to load canvas component: ${randomPath}`, e)
       }
-    } catch (e) {
-      console.warn(`Failed to load canvas component: ${randomPath}`, e)
     }
+
+    console.warn('Failed to load any component after maximum retries')
+  }
+
+  onMounted(() => {
+    loadRandomComponent()
   })
 </script>
 
