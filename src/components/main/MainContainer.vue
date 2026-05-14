@@ -7,6 +7,13 @@
           This is a sample website to demonstrate the use of the by-theme class.
         </div> -->
         <canvas ref="canvas" class="w-full h-full main-bg"></canvas>
+
+        <!-- 添加 Tooltip 组件 -->
+        <DotTooltip
+          :visible="tooltipVisible"
+          :text="tooltipText"
+          :position="tooltipPosition"
+        />
       </div>
     </div>
   </div>
@@ -17,6 +24,8 @@
   import { ref, onMounted, onUnmounted, shallowRef } from 'vue'
   import { HoverManager } from '@/utils/HoverManager';
   import { createDotAnimationHooks, createDotDistanceScaleHook } from '@/utils/DotAnimation';
+  import dotConfig from '@/assets/dot-config.json';
+  import DotTooltip from './DotTooltip.vue';
 
   const canvas = ref<HTMLCanvasElement | null>(null);
   const camera = shallowRef<THREE.OrthographicCamera | null>(null);
@@ -25,6 +34,12 @@
   const controls = shallowRef<OrbitControls | null>(null);
   const pivot = shallowRef<THREE.Object3D | null>(null); // 旋转枢轴
   const hoverManager = shallowRef<HoverManager | null>(null);
+
+  // Tooltip 相关状态
+  const tooltipVisible = ref(false);
+  const tooltipText = ref('');
+  const tooltipPosition = ref({ x: 0, y: 0 });
+  const currentDotIndex = ref<number | null>(null);
 
   const numDots = 30;
 
@@ -111,15 +126,73 @@
 
     pivot.value.add(sphereMesh);
 
-    // 创建悬浮管理器并注册球体的悬浮监听
-    console.log('Checking conditions:', {
-      renderer: !!renderer.value,
-      camera: !!camera.value,
-      canvas: !!canvas.value
+    // 读取配置并为每个圆点注册悬浮和点击事件
+    interface DotConfig {
+      id: number;
+      text: string;
+      link: string;
+    }
+    const configs = dotConfig as DotConfig[];
+
+    // 为每个圆点注册悬浮和点击事件
+    dots.forEach((dot, index) => {
+      const config = configs.find(c => c.id === index);
+
+      if (hoverManager.value) {
+        hoverManager.value.register(dot, {
+          threshold: 0.5,
+          detectionRadius: 0.5, // 增加检测半径
+          onEnter: (mesh) => {
+            // 显示 tooltip
+            if (config) {
+              tooltipText.value = config.text;
+              tooltipVisible.value = true;
+              currentDotIndex.value = index;
+
+              // 计算圆点在屏幕上的位置
+              const vector = new THREE.Vector3();
+              mesh.getWorldPosition(vector);
+              vector.project(camera.value!);
+
+              const canvasRect = canvas.value!.getBoundingClientRect();
+              tooltipPosition.value = {
+                x: (vector.x * 0.5 + 0.5) * canvasRect.width + canvasRect.left,
+                y: (-vector.y * 0.5 + 0.5) * canvasRect.height + canvasRect.top
+              };
+            }
+          },
+          onLeave: () => {
+            // 隐藏 tooltip
+            tooltipVisible.value = false;
+            currentDotIndex.value = null;
+          },
+          onHover: (mesh) => {
+            // 更新 tooltip 位置（跟随圆点）
+            if (tooltipVisible.value) {
+              const vector = new THREE.Vector3();
+              mesh.getWorldPosition(vector);
+              vector.project(camera.value!);
+
+              const canvasRect = canvas.value!.getBoundingClientRect();
+              tooltipPosition.value = {
+                x: (vector.x * 0.5 + 0.5) * canvasRect.width + canvasRect.left,
+                y: (-vector.y * 0.5 + 0.5) * canvasRect.height + canvasRect.top
+              };
+            }
+          },
+          onClick: () => {
+            // 处理点击事件
+            console.log('Dot clicked:', config?.text, 'link:', config?.link);
+            if (config && config.link) {
+              window.open(config.link, '_blank');
+            }
+          }
+        });
+      }
     });
 
+    // 创建悬浮管理器并注册球体的悬浮监听
     if (renderer.value && camera.value && canvas.value) {
-      console.log('Creating HoverManager...');
       hoverManager.value = new HoverManager(camera.value, canvas.value);
 
       // 创建圆点动画钩子

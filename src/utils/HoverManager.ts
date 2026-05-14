@@ -7,6 +7,7 @@ export interface HoverConfig {
   onEnter?: (mesh: THREE.Mesh) => void;   // 鼠标进入时触发
   onLeave?: (mesh: THREE.Mesh) => void;   // 鼠标离开时触发
   onHover?: (mesh: THREE.Mesh, distance: number, point?: THREE.Vector3) => void; // 持续悬浮时触发（包含交点坐标）
+  onClick?: (mesh: THREE.Mesh, point?: THREE.Vector3) => void; // 点击事件
   threshold?: number;  // 触发距离阈值（默认 1.0）
   leaveDelay?: number;        // 鼠标离开后的延迟时间（毫秒），默认 200ms
   detectionRadius?: number;   // 额外的检测半径扩展，默认 0.5
@@ -32,7 +33,9 @@ export class HoverManager {
   private raycaster: THREE.Raycaster;
   private mouse: THREE.Vector2;
   private canvas: HTMLCanvasElement;
+  private camera: THREE.Camera;
   private onMouseMove: (event: MouseEvent) => void;
+  private onMouseClick: (event: MouseEvent) => void;
 
   /**
    * 创建悬浮管理器
@@ -43,13 +46,15 @@ export class HoverManager {
     this.raycaster = new THREE.Raycaster();
     this.mouse = new THREE.Vector2();
     this.canvas = canvas;
-
-    console.log('HoverManager created, canvas:', canvas);
+    this.camera = camera;
 
     // 绑定鼠标移动事件
     this.onMouseMove = this.handleMouseMove.bind(this);
     this.canvas.addEventListener('mousemove', this.onMouseMove);
-    console.log('Mouse event listener added');
+
+    // 绑定鼠标点击事件
+    this.onMouseClick = this.handleClick.bind(this);
+    this.canvas.addEventListener('click', this.onMouseClick);
   }
 
   /**
@@ -62,6 +67,41 @@ export class HoverManager {
     this.mouse.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
     this.mouse.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
 
+  }
+
+  /**
+   * 处理鼠标点击事件
+   */
+  private handleClick(event: MouseEvent): void {
+    const rect = this.canvas.getBoundingClientRect();
+    this.mouse.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
+    this.mouse.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
+
+    console.log('Click at:', this.mouse.x.toFixed(2), this.mouse.y.toFixed(2));
+
+    this.raycaster.setFromCamera(this.mouse, this.camera);
+    const meshes = Array.from(this.registeredMeshes.values());
+    const detectionObjects = meshes.map(m => m.detectionSphere || m.mesh);
+    const intersects = this.raycaster.intersectObjects(detectionObjects, false);
+
+    console.log('Intersects:', intersects.length);
+
+    if (intersects.length > 0) {
+      const intersect = intersects[0];
+      const registered = meshes.find(m =>
+        m.detectionSphere === intersect.object || m.mesh === intersect.object
+      );
+      console.log('Clicked object:', registered ? 'found' : 'not found');
+      if (registered) {
+        console.log('Has onClick:', !!registered.config.onClick);
+        console.log('Is detectionSphere:', intersect.object === registered.detectionSphere);
+        console.log('Is mesh:', intersect.object === registered.mesh);
+      }
+      if (registered && registered.config.onClick) {
+        console.log('Calling onClick callback');
+        registered.config.onClick(registered.mesh, intersect.point);
+      }
+    }
   }
 
   /**
@@ -181,16 +221,13 @@ export class HoverManager {
           clearTimeout(registered.leaveTimer);
           registered.leaveTimer = undefined;
         }
-        console.log('Mouse entered mesh:', mesh);
         registered.isHovered = true;
         config.onEnter?.(mesh);
       } else if (!isIntersected && isHovered) {
         // 鼠标离开：设置延迟触发
         if (!registered.leaveTimer) {
           const delay = config.leaveDelay ?? 200;
-          console.log(`Mouse left mesh, scheduling leave in ${delay}ms`);
           registered.leaveTimer = window.setTimeout(() => {
-            console.log('Delayed leave triggered for mesh:', mesh);
             registered.isHovered = false;
             registered.leaveTimer = undefined;
             config.onLeave?.(mesh);
@@ -215,6 +252,7 @@ export class HoverManager {
    */
   dispose(): void {
     this.canvas.removeEventListener('mousemove', this.onMouseMove);
+    this.canvas.removeEventListener('click', this.onMouseClick); // 清理点击事件监听器
     // 清理所有定时器和检测球体
     for (const registered of this.registeredMeshes.values()) {
       if (registered.leaveTimer) {

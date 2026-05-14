@@ -120,40 +120,34 @@ export function createDotAnimationHooks(
 
   // onEnter 钩子：展开圆点
   const onEnter = () => {
-    console.log('onEnter called, expanding dots');
     const now = performance.now();
     for (const state of animationStates) {
       // 只设置目标状态，不立即改变 isExpanding
       if (state.targetState !== 'expanded') {
         state.targetState = 'expanded';
         state.startTime = now; // 重置开始时间以重新开始动画
-        console.log('Dot', state.mesh.uuid, 'target changed to expanded');
       }
     }
 
     // 启动动画循环
     if (!animationFrameId) {
-      console.log('Starting animation loop');
       updateAnimation();
     }
   };
 
   // onLeave 钩子：收缩圆点
   const onLeave = () => {
-    console.log('onLeave called, contracting dots');
     const now = performance.now();
     for (const state of animationStates) {
       // 只设置目标状态
       if (state.targetState !== 'contracted') {
         state.targetState = 'contracted';
         state.startTime = now; // 重置开始时间以重新开始动画
-        console.log('Dot', state.mesh.uuid, 'target changed to contracted');
       }
     }
 
     // 启动动画循环
     if (!animationFrameId) {
-      console.log('Starting animation loop');
       updateAnimation();
     }
   };
@@ -210,11 +204,6 @@ export function createDotDistanceScaleHook(
         const excessDist = distToMouse - influenceRadius;
         const decayFactor = Math.max(0, 1 - excessDist / influenceRadius);
         scaleRatio = minScale + (baseScale - minScale) * decayFactor;
-      }
-
-      // 调试日志：打印前几个圆点的信息
-      if (index < 3) {
-        console.log(`Dot ${index} distance:`, distToMouse.toFixed(2), 'scaleRatio:', scaleRatio.toFixed(2), 'currentScale:', dot.scale.x.toFixed(2));
       }
 
       // 应用缩放 - 直接设置而不是使用 lerp

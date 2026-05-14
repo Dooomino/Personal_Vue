@@ -1,0 +1,152 @@
+[
+  {
+    "id": 0,
+    "text": "首页",
+    "link": "/"
+  },
+  {
+    "id": 1,
+    "text": "关于",
+    "link": "/about"
+  },
+  {
+    "id": 2,
+    "text": "GitHub",
+    "link": "https://github.com"
+  },
+  {
+    "id": 3,
+    "text": "Vue.js",
+    "link": "https://vuejs.org"
+  },
+  {
+    "id": 4,
+    "text": "Three.js",
+    "link": "https://threejs.org"
+  },
+  {
+    "id": 5,
+    "text": "TypeScript",
+    "link": "https://www.typescriptlang.org"
+  },
+  {
+    "id": 6,
+    "text": "Vite",
+    "link": "https://vitejs.dev"
+  },
+  {
+    "id": 7,
+    "text": "Tailwind CSS",
+    "link": "https://tailwindcss.com"
+  },
+  {
+    "id": 8,
+    "text": "Pinia",
+    "link": "https://pinia.vuejs.org"
+  },
+  {
+    "id": 9,
+    "text": "联系我",
+    "link": ""
+  },
+  {
+    "id": 10,
+    "text": "博客",
+    "link": ""
+  },
+  {
+    "id": 11,
+    "text": "项目 1",
+    "link": ""
+  },
+  {
+    "id": 12,
+    "text": "项目 2",
+    "link": ""
+  },
+  {
+    "id": 13,
+    "text": "项目 3",
+    "link": ""
+  },
+  {
+    "id": 14,
+    "text": "技能",
+    "link": ""
+  },
+  {
+    "id": 15,
+    "text": "经验",
+    "link": ""
+  },
+  {
+    "id": 16,
+    "text": "教育",
+    "link": ""
+  },
+  {
+    "id": 17,
+    "text": "证书",
+    "link": ""
+  },
+  {
+    "id": 18,
+    "text": "作品",
+    "link": ""
+  },
+  {
+    "id": 19,
+    "text": "文章",
+    "link": ""
+  },
+  {
+    "id": 20,
+    "text": "资源",
+    "link": ""
+  },
+  {
+    "id": 21,
+    "text": "工具",
+    "link": ""
+  },
+  {
+    "id": 22,
+    "text": "文档",
+    "link": ""
+  },
+  {
+    "id": 23,
+    "text": "教程",
+    "link": ""
+  },
+  {
+    "id": 24,
+    "text": "社区",
+    "link": ""
+  },
+  {
+    "id": 25,
+    "text": "论坛",
+    "link": ""
+  },
+  {
+    "id": 26,
+    "text": "新闻",
+    "link": ""
+  },
+  {
+    "id": 27,
+    "text": "活动",
+    "link": ""
+  },
+  {
+    "id": 28,
+    "text": "招聘",
+    "link": ""
+  },
+  {
+    "id": 29,
+    "text": "更多",
+    "link": ""
+  }
+]
