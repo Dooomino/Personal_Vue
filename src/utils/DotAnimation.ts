@@ -214,3 +214,135 @@ export function createDotDistanceScaleHook(
 
   return { onHover };
 }
+
+/**
+ * 圆点自动旋转缩放状态
+ */
+interface DotAutoRotateScaleState {
+  dots: THREE.Mesh[];
+  originalScales: THREE.Vector3[];
+  center: THREE.Vector3;          // 环绕中心
+  radius: number;                  // 环绕半径
+  angle: number;                   // 当前旋转角度
+  rotationSpeed: number;           // 旋转速度（弧度/秒）
+  influenceRadius: number;         // 影响半径
+  baseScale: number;               // 基础缩放
+  maxScale: number;                // 最大缩放
+  minScale: number;                // 最小缩放
+  isActive: boolean;               // 是否激活
+  lastTime: number;                // 上次更新时间
+}
+
+/**
+ * 创建圆点自动旋转缩放钩子（模拟虚拟鼠标绕球体转圈）
+ * @param dots - 圆点 Mesh 数组
+ * @param center - 环绕中心位置
+ * @param radius - 环绕半径
+ * @param rotationSpeed - 旋转速度（弧度/秒），默认 0.5
+ * @param influenceRadius - 影响半径，默认 2.0
+ * @param baseScale - 基础缩放比例，默认 0.3
+ * @param maxScale - 最大缩放比例，默认 3.0
+ * @param minScale - 最小缩放比例，默认 0.15
+ * @returns 包含 start、stop 和 update 方法的对象
+ */
+export function createDotAutoRotateScaleHook(
+  dots: THREE.Mesh[],
+  center: THREE.Vector3,
+  radius: number,
+  rotationSpeed: number = 0.5,
+  influenceRadius: number = 2.0,
+  baseScale: number = 0.3,
+  maxScale: number = 3.0,
+  minScale: number = 0.15
+): {
+  start: () => void;
+  stop: () => void;
+  update: () => void;
+} {
+  // 保存原始缩放
+  const originalScales = dots.map(dot => dot.scale.clone());
+
+  // 状态对象
+  const state: DotAutoRotateScaleState = {
+    dots,
+    originalScales,
+    center,
+    radius,
+    angle: 0,
+    rotationSpeed,
+    influenceRadius,
+    baseScale,
+    maxScale,
+    minScale,
+    isActive: false,
+    lastTime: performance.now()
+  };
+
+  /**
+   * 计算缩放比例（基于距离）
+   */
+  function getScaleRatio(distance: number): number {
+    if (distance < influenceRadius) {
+      // 在影响范围内：使用 6 次方曲线，近距离放大更明显
+      const normalizedDist = distance / influenceRadius;
+      const easeFactor = Math.pow(1 - normalizedDist, 6);
+      return baseScale + (maxScale - baseScale) * easeFactor;
+    } else {
+      // 在影响范围外：逐渐缩小到最小值
+      const excessDist = distance - influenceRadius;
+      const decayFactor = Math.max(0, 1 - excessDist / influenceRadius);
+      return minScale + (baseScale - minScale) * decayFactor;
+    }
+  }
+
+  /**
+   * 更新旋转缩放效果
+   */
+  function update(): void {
+    if (!state.isActive) return;
+
+    const now = performance.now();
+    const deltaTime = (now - state.lastTime) / 1000; // 转换为秒
+    state.lastTime = now;
+
+    // 更新旋转角度（顺时针旋转）
+    state.angle += state.rotationSpeed * deltaTime;
+
+    // 计算虚拟鼠标在世界坐标中的位置
+    const mouseX = state.center.x + state.radius * Math.cos(state.angle);
+    const mouseZ = state.center.z + state.radius * Math.sin(state.angle);
+    const mouseWorldPos = new THREE.Vector3(mouseX, 0, mouseZ);
+
+    // 遍历所有圆点，计算与虚拟鼠标的距离并设置缩放
+    dots.forEach((dot, index) => {
+      const dotWorldPos = new THREE.Vector3();
+      dot.getWorldPosition(dotWorldPos);
+
+      // 计算虚拟鼠标到圆点的距离
+      const distToMouse = mouseWorldPos.distanceTo(dotWorldPos);
+
+      // 计算缩放比例
+      const scaleRatio = getScaleRatio(distToMouse);
+
+      // 应用缩放
+      const targetScale = originalScales[index].clone().multiplyScalar(scaleRatio);
+      dot.scale.copy(targetScale);
+    });
+  }
+
+  return {
+    start: () => {
+      state.isActive = true;
+      state.lastTime = performance.now();
+    },
+    stop: () => {
+      state.isActive = false;
+      // 恢复所有圆点到基础缩放
+      dots.forEach((dot, index) => {
+        const targetScale = originalScales[index].clone().multiplyScalar(baseScale);
+        dot.scale.copy(targetScale);
+      });
+    },
+    update
+  };
+}

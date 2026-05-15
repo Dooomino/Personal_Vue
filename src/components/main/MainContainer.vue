@@ -25,7 +25,7 @@
   import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
   import { ref, onMounted, onUnmounted, shallowRef } from 'vue'
   import { HoverManager } from '@/utils/HoverManager';
-  import { createDotAnimationHooks, createDotDistanceScaleHook } from '@/utils/DotAnimation';
+  import { createDotAnimationHooks, createDotAutoRotateScaleHook } from '@/utils/DotAnimation';
   import dotConfig from '@/assets/dot-config.json';
   import DotTooltip from './DotTooltip.vue';
 
@@ -36,6 +36,9 @@
   const controls = shallowRef<OrbitControls | null>(null);
   const pivot = shallowRef<THREE.Object3D | null>(null); // 旋转枢轴
   const hoverManager = shallowRef<HoverManager | null>(null);
+
+  // 圆点自动旋转缩放动画引用
+  const autoRotateScaleRef = { current: null as ReturnType<typeof createDotAutoRotateScaleHook> | null };
 
   // Tooltip 相关状态
   const tooltipVisible = ref(false);
@@ -205,14 +208,27 @@
         500 // 动画持续时间 500ms
       );
 
-      // 创建圆点距离缩放钩子
-      const { onHover: dotsOnHover } = createDotDistanceScaleHook(
+      // 注释掉原来的距离缩放钩子，改用自动旋转缩放
+      // const { onHover: dotsOnHover } = createDotDistanceScaleHook(
+      //   dots,
+      //   camera.value!,  // 此时 camera 已存在
+      //   0.3,   // 基础缩放
+      //   3.0,   // 最大缩放（离鼠标最近的圆点放大到 4.0 倍）
+      //   5.0    // 影响半径（加大检测范围）
+      // );
+
+      // 创建圆点自动旋转缩放钩子
+      const autoRotateScale = createDotAutoRotateScaleHook(
         dots,
-        camera.value!,  // 此时 camera 已存在
-        0.3,   // 基础缩放
-        3.0,   // 最大缩放（离鼠标最近的圆点放大到 4.0 倍）
-        5.0    // 影响半径（加大检测范围）
+        sphereMesh.position,  // 环绕中心
+        radius,                // 环绕半径
+        0.5,                   // 旋转速度（弧度/秒）
+        2.5,                   // 影响半径
+        0.3,                   // 基础缩放
+        3.0,                   // 最大缩放
+        0.15                   // 最小缩放
       );
+      autoRotateScaleRef.current = autoRotateScale;
 
       // 保存球体原始缩放
       const originalScale = sphereMesh.scale.clone();
@@ -266,6 +282,9 @@
           // 触发圆点展开
           dotsOnEnter(mesh);
 
+          // 启动自动旋转缩放
+          autoRotateScaleRef.current?.start();
+
           // 触发球体放大
           if (!isScaling || scaleTarget !== 'expand') {
             isScaling = true;
@@ -278,6 +297,9 @@
           // 触发圆点收缩
           dotsOnLeave(mesh);
 
+          // 停止自动旋转缩放
+          autoRotateScaleRef.current?.stop();
+
           // 触发球体缩小
           if (!isScaling || scaleTarget !== 'contract') {
             isScaling = true;
@@ -286,10 +308,11 @@
             updateSphereScale();
           }
         },
-        onHover: (mesh, distance, point) => {
-          // 触发圆点距离缩放（传递交点坐标）
-          dotsOnHover(mesh, distance, point);
-        }
+        // 注释掉原来的距离缩放回调，改用自动旋转缩放
+        // onHover: (mesh, distance, point) => {
+        //   // 触发圆点距离缩放（传递交点坐标）
+        //   dotsOnHover(mesh, distance, point);
+        // }
       });
     }
   }
@@ -300,6 +323,11 @@
       // 更新悬浮管理器
       if (hoverManager.value && camera.value) {
         hoverManager.value.update(camera.value);
+      }
+
+      // 更新圆点自动旋转缩放
+      if (autoRotateScaleRef.current) {
+        autoRotateScaleRef.current.update();
       }
 
       controls.value.update(); // 更新控制器
