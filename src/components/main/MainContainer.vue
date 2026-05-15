@@ -308,6 +308,15 @@
             updateSphereScale();
           }
         },
+        onClick: (mesh, point) => {
+          // 处理球体点击事件
+          console.log('Sphere clicked!', point);
+
+          // 可以在这里添加点击后的逻辑，例如：
+          // 1. 触发球体脉冲动画
+          // 2. 切换旋转缩放方向
+          // 3. 打开某个链接或模态框
+        },
         // 注释掉原来的距离缩放回调，改用自动旋转缩放
         // onHover: (mesh, distance, point) => {
         //   // 触发圆点距离缩放（传递交点坐标）
