@@ -9,11 +9,13 @@
         <canvas ref="canvas" class="w-full h-full main-bg"></canvas>
 
         <!-- 添加 Tooltip 组件 -->
-        <DotTooltip
-          :visible="tooltipVisible"
-          :text="tooltipText"
-          :position="tooltipPosition"
-        />
+        <Transition name="tooltip">
+          <DotTooltip
+            v-if="tooltipVisible"
+            :text="tooltipText"
+            :position="tooltipPosition"
+          />
+        </Transition>
       </div>
     </div>
   </div>
@@ -90,17 +92,17 @@
     stage.value!.add(pivot.value);
 
     const sphereMesh = new THREE.Mesh(
-      new THREE.SphereGeometry( 2, 64, 64 ),
+      new THREE.SphereGeometry( 1, 64, 64 ),
       new THREE.MeshBasicMaterial({ color: 0xffffff })
     );
 
     sphereMesh.position.set(0, 0, 0);
 
-    const radius = 2.5; // 小圆点围绕大球的半径
+    const radius = 1.3; // 小圆点围绕大球的半径
     const segment = (Math.PI * 2) / numDots; // 每段弧度
 
     // 共用 Geometry 和 Material（优化性能）
-    const dotGeometry = new THREE.SphereGeometry( 0.08, 32, 32 ); // 减小圆点原始尺寸
+    const dotGeometry = new THREE.SphereGeometry( 0.05, 32, 32 ); // 减小圆点原始尺寸
     const dotMaterial = new THREE.MeshBasicMaterial({ color: 0xffffff });
 
     const dots: THREE.Mesh[] = [];
@@ -207,8 +209,8 @@
       const { onHover: dotsOnHover } = createDotDistanceScaleHook(
         dots,
         camera.value!,  // 此时 camera 已存在
-        1.0,   // 基础缩放
-        4.0,   // 最大缩放（离鼠标最近的圆点放大到 4.0 倍）
+        0.3,   // 基础缩放
+        3.0,   // 最大缩放（离鼠标最近的圆点放大到 4.0 倍）
         5.0    // 影响半径（加大检测范围）
       );
 
@@ -329,5 +331,23 @@
 <style scoped>
   .main-bg {
     pointer-events: auto; /* 允许接收鼠标事件 */
+  }
+
+  /* Tooltip 过渡动画 */
+  .tooltip-enter-active,
+  .tooltip-leave-active {
+    transition: opacity 0.2s ease-out, transform 0.2s ease-out;
+  }
+
+  .tooltip-enter-from,
+  .tooltip-leave-to {
+    opacity: 0;
+    transform: translate(-50%, -120%) scale(0.8);
+  }
+
+  .tooltip-enter-to,
+  .tooltip-leave-from {
+    opacity: 1;
+    transform: translate(-50%, -120%) scale(1);
   }
 </style>

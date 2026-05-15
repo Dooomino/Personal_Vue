@@ -1,6 +1,5 @@
 <template>
   <div
-    v-if="visible"
     class="dot-tooltip"
     :style="{ left: position.x + 'px', top: position.y + 'px' }"
   >
@@ -13,7 +12,6 @@
 
 <script setup lang="ts">
 interface Props {
-  visible: boolean;
   text: string;
   position: { x: number; y: number };
 }

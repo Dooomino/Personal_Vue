@@ -20,6 +20,9 @@
 <script setup lang="ts">
   import { onMounted, ref, shallowRef } from 'vue';
   import type { Component } from 'vue';
+  import { useBroadcastStore } from '@/stores/broadcast';
+
+  const broadcastStore = useBroadcastStore();
 
   const canvasModules = import.meta.glob<{ default: Component }>('./stages/*.vue');
 
@@ -44,6 +47,9 @@
           if (!excludeModules.includes(componentName)) {
             loadedComponents.value = [mod.default]
             console.log(`Loaded component: ${componentName}`)
+
+            // 标记模块加载成功
+            broadcastStore.markModuleAsSuccess('BackCanvas', `Loaded ${componentName}`);
             return // 成功加载，退出
           } else {
             console.log(`Excluded component: ${componentName}, retrying... (${i + 1}/${maxRetries})`)
@@ -55,6 +61,8 @@
     }
 
     console.warn('Failed to load any component after maximum retries')
+    // 即使失败也标记为成功，避免 MainContainer 永远不显示
+    broadcastStore.markModuleAsSuccess('BackCanvas', 'Fallback loaded');
   }
 
   onMounted(() => {
