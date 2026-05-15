@@ -46,7 +46,40 @@
   const tooltipPosition = ref({ x: 0, y: 0 });
   const currentDotIndex = ref<number | null>(null);
 
+  // 子弹管理系统
+  interface Bullet {
+    mesh: THREE.Mesh;
+    direction: THREE.Vector3;
+    speed: number;
+    isActive: boolean;
+  }
+
+  interface Particle {
+    mesh: THREE.Mesh;
+    velocity: THREE.Vector3;
+    life: number; // 剩余生命周期（秒）
+    maxLife: number; // 最大生命周期
+  }
+
+  const bullets: Bullet[] = [];
+  const particles: Particle[] = [];
+
+  // 子弹几何体和材质（共享以优化性能）
+  const bulletGeometry = new THREE.SphereGeometry(0.08, 16, 16);
+  const bulletMaterial = new THREE.MeshBasicMaterial({ color: 0xff6b6b });
+
+  // 粒子几何体和材质
+  const particleGeometry = new THREE.SphereGeometry(0.03, 8, 8);
+  const particleMaterial = new THREE.MeshBasicMaterial({
+    color: 0xffaa00,
+    transparent: true,
+    opacity: 1
+  });
+
   const numDots = 30;
+
+  // 圆点数组（模块级变量，供子弹碰撞检测使用）
+  const dots: THREE.Mesh[] = [];
 
   function initStage(){
     if (canvas.value) {
@@ -108,7 +141,6 @@
     const dotGeometry = new THREE.SphereGeometry( 0.05, 32, 32 ); // 减小圆点原始尺寸
     const dotMaterial = new THREE.MeshBasicMaterial({ color: 0xffffff });
 
-    const dots: THREE.Mesh[] = [];
     const targetPositions: THREE.Vector3[] = [];
 
     for( let i = 0; i < numDots; i++ ){
@@ -186,8 +218,7 @@
             }
           },
           onClick: () => {
-            // 处理点击事件
-            console.log('Dot clicked:', config?.text, 'link:', config?.link);
+            // 处理圆点点击事件
             if (config && config.link) {
               window.open(config.link, '_blank');
             }
@@ -308,14 +339,23 @@
             updateSphereScale();
           }
         },
-        onClick: (mesh, point) => {
-          // 处理球体点击事件
-          console.log('Sphere clicked!', point);
+        onClick: () => {
+          // 处理球体点击事件，发射子弹
+          const state = autoRotateScaleRef.current?.getState();
+          if (state && state.isActive) {
+            // 获取当前虚拟鼠标位置
+            const mouseX = state.center.x + state.radius * Math.cos(state.angle);
+            const mouseZ = state.center.z + state.radius * Math.sin(state.angle);
 
-          // 可以在这里添加点击后的逻辑，例如：
-          // 1. 触发球体脉冲动画
-          // 2. 切换旋转缩放方向
-          // 3. 打开某个链接或模态框
+            // 计算发射方向（从中心指向外部）
+            const direction = new THREE.Vector3(mouseX, 0, mouseZ).normalize();
+
+            // 调整发射位置：沿发射方向向外偏移 0.5 单位，避免与圆点立即碰撞
+            const startPos = new THREE.Vector3(mouseX, 0, mouseZ).add(direction.clone().multiplyScalar(0.5));
+
+            // 发射子弹
+            fireBullet(startPos, direction);
+          }
         },
         // 注释掉原来的距离缩放回调，改用自动旋转缩放
         // onHover: (mesh, distance, point) => {
@@ -323,6 +363,117 @@
         //   dotsOnHover(mesh, distance, point);
         // }
       });
+    }
+  }
+
+  // 发射子弹
+  function fireBullet(startPos: THREE.Vector3, direction: THREE.Vector3) {
+    const bulletMesh = new THREE.Mesh(bulletGeometry, bulletMaterial);
+    bulletMesh.position.copy(startPos);
+    stage.value!.add(bulletMesh);
+
+    bullets.push({
+      mesh: bulletMesh,
+      direction: direction.clone().normalize(),
+      speed: 8.0, // 子弹速度（单位/秒）
+      isActive: true
+    });
+  }
+
+  // 创建爆炸粒子效果
+  function createExplosion(position: THREE.Vector3) {
+    const particleCount = 8; // 粒子数量
+    const spreadSpeed = 3.0; // 扩散速度
+
+    for (let i = 0; i < particleCount; i++) {
+      const particleMesh = new THREE.Mesh(particleGeometry, particleMaterial.clone());
+      particleMesh.position.copy(position);
+
+      // 随机方向
+      const theta = Math.random() * Math.PI * 2;
+      const phi = Math.random() * Math.PI;
+      const velocity = new THREE.Vector3(
+        Math.sin(phi) * Math.cos(theta),
+        Math.sin(phi) * Math.sin(theta),
+        Math.cos(phi)
+      ).multiplyScalar(spreadSpeed);
+
+      stage.value!.add(particleMesh);
+
+      particles.push({
+        mesh: particleMesh,
+        velocity,
+        life: 0.3, // 粒子生命周期 0.3 秒
+        maxLife: 0.3
+      });
+    }
+  }
+
+  // 更新所有子弹位置
+  function updateBullets(deltaTime: number) {
+    if (!camera.value) return;
+
+    // 获取相机的实际边界
+    const frustumSize = 10;
+    const aspect = (canvas.value?.clientWidth || 0) / (canvas.value?.clientHeight || 0);
+    const xBound = frustumSize * aspect / 2 + 0.5; // 左右边界（留一些余量）
+    const zBound = frustumSize / 2 + 0.5; // 上下边界（留一些余量）
+
+    for (let i = bullets.length - 1; i >= 0; i--) {
+      const bullet = bullets[i];
+      if (!bullet.isActive) continue;
+
+      // 更新位置
+      bullet.mesh.position.addScaledVector(bullet.direction, bullet.speed * deltaTime);
+
+      // 检测碰撞（与圆点）
+      let collided = false;
+      for (const dot of dots) {
+        const dist = bullet.mesh.position.distanceTo(dot.position);
+        if (dist < 0.15) { // 碰撞阈值（子弹半径0.08 + 圆点半径0.05 + 容差0.02）
+          collided = true;
+
+          // 触发爆炸效果
+          createExplosion(bullet.mesh.position.clone());
+          break;
+        }
+      }
+
+      // 检测边界
+      const pos = bullet.mesh.position;
+      const outOfBounds = Math.abs(pos.x) > xBound || Math.abs(pos.z) > zBound;
+
+      // 移除子弹
+      if (collided || outOfBounds) {
+        // 边界碰撞也触发爆炸效果
+        if (outOfBounds && !collided) {
+          createExplosion(bullet.mesh.position.clone());
+        }
+        stage.value!.remove(bullet.mesh);
+        bullets.splice(i, 1);
+      }
+    }
+  }
+
+  // 更新所有粒子
+  function updateParticles(deltaTime: number) {
+    for (let i = particles.length - 1; i >= 0; i--) {
+      const particle = particles[i];
+
+      // 更新位置
+      particle.mesh.position.addScaledVector(particle.velocity, deltaTime);
+
+      // 更新生命周期和透明度
+      particle.life -= deltaTime;
+      const opacity = particle.life / particle.maxLife;
+      (particle.mesh.material as THREE.MeshBasicMaterial).opacity = opacity;
+
+      // 移除死亡粒子
+      if (particle.life <= 0) {
+        stage.value!.remove(particle.mesh);
+        (particle.mesh.material as THREE.Material).dispose();
+        particles.splice(i, 1);
+      }
     }
   }
 
@@ -339,6 +490,11 @@
         autoRotateScaleRef.current.update();
       }
 
+      // 更新子弹和粒子
+      const deltaTime = 0.016; // 假设 60fps，约 16ms
+      updateBullets(deltaTime);
+      updateParticles(deltaTime);
+
       controls.value.update(); // 更新控制器
       renderer.value.render(stage.value, camera.value);
     }
@@ -353,6 +509,19 @@
   onUnmounted(() => {
     // 清理悬浮管理器
     hoverManager.value?.dispose();
+
+    // 清理所有子弹
+    bullets.forEach(bullet => {
+      stage.value?.remove(bullet.mesh);
+    });
+    bullets.length = 0;
+
+    // 清理所有粒子
+    particles.forEach(particle => {
+      stage.value?.remove(particle.mesh);
+      (particle.mesh.material as THREE.Material).dispose();
+    });
+    particles.length = 0;
 
     controls.value?.dispose();
     renderer.value?.dispose();

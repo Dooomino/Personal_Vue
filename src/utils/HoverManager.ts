@@ -77,28 +77,17 @@ export class HoverManager {
     this.mouse.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
     this.mouse.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
 
-    console.log('Click at:', this.mouse.x.toFixed(2), this.mouse.y.toFixed(2));
-
     this.raycaster.setFromCamera(this.mouse, this.camera);
     const meshes = Array.from(this.registeredMeshes.values());
     const detectionObjects = meshes.map(m => m.detectionSphere || m.mesh);
     const intersects = this.raycaster.intersectObjects(detectionObjects, false);
-
-    console.log('Intersects:', intersects.length);
 
     if (intersects.length > 0) {
       const intersect = intersects[0];
       const registered = meshes.find(m =>
         m.detectionSphere === intersect.object || m.mesh === intersect.object
       );
-      console.log('Clicked object:', registered ? 'found' : 'not found');
-      if (registered) {
-        console.log('Has onClick:', !!registered.config.onClick);
-        console.log('Is detectionSphere:', intersect.object === registered.detectionSphere);
-        console.log('Is mesh:', intersect.object === registered.mesh);
-      }
       if (registered && registered.config.onClick) {
-        console.log('Calling onClick callback');
         registered.config.onClick(registered.mesh, intersect.point);
       }
     }
@@ -147,6 +136,8 @@ export class HoverManager {
         onEnter: config.onEnter,
         onLeave: config.onLeave,
         onHover: config.onHover,
+        onClick: config.onClick,
+        leaveDelay: config.leaveDelay,
         detectionRadius
       },
       isHovered: false,

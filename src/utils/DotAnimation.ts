@@ -258,6 +258,7 @@ export function createDotAutoRotateScaleHook(
   start: () => void;
   stop: () => void;
   update: () => void;
+  getState: () => DotAutoRotateScaleState;
 } {
   // 保存原始缩放
   const originalScales = dots.map(dot => dot.scale.clone());
@@ -343,6 +344,7 @@ export function createDotAutoRotateScaleHook(
         dot.scale.copy(targetScale);
       });
     },
-    update
+    update,
+    getState: () => ({ ...state })  // 返回状态的浅拷贝
   };
 }
