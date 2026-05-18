@@ -3,6 +3,9 @@
     <!-- 左侧：可以放 Logo 和导航链接 -->
     <div class="flex items-center gap-4">
       <!-- 预留位置给未来的导航项 -->
+      <n-img src="#" alt="Logo" class="h-8" />
+      <router-link to="/">Home</router-link>
+      <router-link to="/about">About</router-link>
     </div>
     <!-- 右侧：主题切换开关 -->
     <div class="flex items-center">

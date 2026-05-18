@@ -136,7 +136,7 @@
     const sphereGeo = new THREE.SphereGeometry(SPHERE_RADIUS, 32, 32);
     const sphereMat = new THREE.MeshBasicMaterial({
       color: 0x333333,
-      wireframe: true,
+      wireframe: false,
       transparent: true,
       opacity: 0.5,
       side: THREE.BackSide,

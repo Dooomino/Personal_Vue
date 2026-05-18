@@ -1,3 +1,26 @@
 @import 'tailwindcss/preflight';
 @import "tailwindcss";
+
+/* Tailwind v4 主题配置 */
+@theme {
+  /* 自定义颜色 - 使用 --color-* 前缀 */
+  --color-light-bg: #ffffff;
+  --color-light-bg-card: #f8fafc;
+  --color-light-bg-hover: #f1f5f9;
+  --color-light-bg-input: #ffffff;
+  --color-light-text: #0f172a;
+  --color-light-text-secondary: #475569;
+  --color-light-text-muted: #64748b;
+  --color-light-border: #e2e8f0;
+
+  --color-dark-bg: #000000;
+  --color-dark-bg-card: #1e293b;
+  --color-dark-bg-hover: #334155;
+  --color-dark-bg-input: #1e293b;
+  --color-dark-text: #f1f5f9;
+  --color-dark-text-secondary: #cbd5e1;
+  --color-dark-text-muted: #94a3b8;
+  --color-dark-border: #334155;
+}
+
 @import './base.scss';
