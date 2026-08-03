@@ -28,6 +28,7 @@ import SkillBadge from '@/components/ui/SkillBadge.vue'
 
 <style scoped>
 .about-page {
+  height: 100%;
   width: 100%;
   overflow-y: auto;
   position: relative;
