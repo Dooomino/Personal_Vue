@@ -32,8 +32,8 @@ function onMove(e: MouseEvent) {
   const rect = el.getBoundingClientRect()
   const x = (e.clientX - rect.left) / rect.width - 0.5
   const y = (e.clientY - rect.top) / rect.height - 0.5
-  // easing: smooth near edges, max at center
-  const ease = (v: number) => Math.sign(v) * Math.pow(Math.abs(v), 0.7) * 2
+  // sine: zero at edges, max at center
+  const ease = (v: number) => Math.sin(v * Math.PI)
   transform.value = `perspective(800px) rotateY(${ease(x) * 10}deg) rotateX(${ease(y) * -10}deg) translateY(-4px)`
 }
 
