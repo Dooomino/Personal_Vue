@@ -47,7 +47,7 @@ function onLeave() {
   border: 1px solid rgba(255, 255, 255, 0.08);
   border-radius: 16px;
   padding: 28px;
-  transition: all 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: border-color 0.3s, box-shadow 0.3s;
   animation: cardIn 0.5s ease both;
 }
 .card:hover {
@@ -93,7 +93,7 @@ function onLeave() {
 .card-link:hover { color: #93c5fd; }
 .link-icon { font-size: 11px; }
 @keyframes cardIn {
-  from { opacity: 0; transform: translateY(16px); }
-  to { opacity: 1; transform: translateY(0); }
+  from { opacity: 0; }
+  to { opacity: 1; }
 }
 </style>
