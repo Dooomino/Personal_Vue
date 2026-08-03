@@ -6,21 +6,21 @@
         <p class="card-subtitle">期待与你的交流</p>
         <div class="list">
           <a :href="`mailto:${contact.email}`" class="item">
-            <span class="item-icon">✉</span>
+            <n-icon :size="20" class="item-icon"><Email /></n-icon>
             <div class="item-body">
               <div class="item-label">邮箱</div>
               <div class="item-value">{{ contact.email }}</div>
             </div>
           </a>
           <a :href="contact.github" target="_blank" class="item">
-            <span class="item-icon">›</span>
+            <n-icon :size="20" class="item-icon"><Link /></n-icon>
             <div class="item-body">
               <div class="item-label">GitHub</div>
               <div class="item-value">Dooomino</div>
             </div>
           </a>
           <div class="item">
-            <span class="item-icon">△</span>
+            <n-icon :size="20" class="item-icon"><Earth /></n-icon>
             <div class="item-body">
               <div class="item-label">位置</div>
               <div class="item-value">{{ contact.location }}</div>
@@ -33,6 +33,8 @@
 </template>
 
 <script setup lang="ts">
+import { NIcon } from 'naive-ui'
+import { Email, Link, Earth } from '@vicons/carbon'
 import { contact } from '@/data/resume'
 </script>
 
@@ -84,7 +86,7 @@ import { contact } from '@/data/resume'
   background: rgba(96, 165, 250, 0.06);
   transform: translateX(4px);
 }
-.item-icon { font-size: 18px; flex-shrink: 0; color: rgba(255,255,255,0.5); }
+.item-icon { color: rgba(255,255,255,0.5); flex-shrink: 0; }
 .item-body { text-align: left; }
 .item-label { font-size: 11px; color: rgba(255, 255, 255, 0.35); text-transform: uppercase; letter-spacing: 0.05em; }
 .item-value { font-size: 14px; color: #e5e7eb; margin-top: 2px; }
