@@ -11,17 +11,16 @@ const year = new Date().getFullYear()
 <style scoped>
 .footer {
   text-align: center;
-  padding: 16px;
-  font-size: 13px;
-  color: rgba(255, 255, 255, 0.4);
-  border-top: 1px solid rgba(255, 255, 255, 0.05);
+  padding: 14px;
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.25);
+  border-top: 1px solid rgba(255, 255, 255, 0.03);
   flex-shrink: 0;
 }
 .footer a {
-  color: rgba(255, 255, 255, 0.4);
+  color: rgba(255, 255, 255, 0.25);
   text-decoration: none;
+  transition: color 0.2s;
 }
-.footer a:hover {
-  color: #60a5fa;
-}
+.footer a:hover { color: #60a5fa; }
 </style>

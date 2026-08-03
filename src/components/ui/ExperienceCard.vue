@@ -1,30 +1,33 @@
 <template>
-  <div class="card">
+  <div class="card" :style="{ animationDelay: `${index * 80}ms` }">
     <div class="card-header">
-      <h3 class="card-title">{{ project.name }}</h3>
-      <span class="card-period">{{ project.period }}</span>
+      <div>
+        <h3 class="card-title">{{ project.name }}</h3>
+        <span class="card-period">{{ project.period }}</span>
+      </div>
     </div>
     <ul class="desc-list">
       <li v-for="(desc, i) in project.description" :key="i" class="desc-item">{{ desc }}</li>
     </ul>
     <div class="tags">
-      <span v-for="tech in project.techStack" :key="tech" class="tag tag--green">{{ tech }}</span>
+      <span v-for="tech in project.techStack" :key="tech" class="tag">{{ tech }}</span>
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
 import type { WorkProject } from '@/data/resume'
-defineProps<{ project: WorkProject }>()
+defineProps<{ project: WorkProject; index?: number }>()
 </script>
 
 <style scoped>
 .card {
-  background: rgba(255, 255, 255, 0.05);
-  backdrop-filter: blur(8px);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: 12px;
-  padding: 24px;
+  background: linear-gradient(135deg, rgba(255,255,255,0.05) 0%, rgba(255,255,255,0.01) 100%);
+  backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  border-radius: 16px;
+  padding: 28px;
+  animation: cardIn 0.5s ease both;
 }
 .card-header {
   display: flex;
@@ -33,14 +36,14 @@ defineProps<{ project: WorkProject }>()
   margin-bottom: 16px;
 }
 .card-title {
-  font-size: 18px;
+  font-size: 17px;
   font-weight: 600;
-  color: #fff;
-  margin: 0;
+  color: #f0f0f0;
+  margin: 0 0 4px;
 }
 .card-period {
-  font-size: 14px;
-  color: rgba(255, 255, 255, 0.5);
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.35);
 }
 .desc-list {
   list-style: none;
@@ -48,33 +51,38 @@ defineProps<{ project: WorkProject }>()
   margin: 0 0 16px;
 }
 .desc-item {
-  font-size: 14px;
-  color: rgba(255, 255, 255, 0.7);
-  line-height: 1.6;
-  padding-left: 16px;
+  font-size: 13.5px;
+  color: rgba(255, 255, 255, 0.6);
+  line-height: 1.7;
+  padding-left: 18px;
   position: relative;
-  margin-bottom: 8px;
+  margin-bottom: 6px;
 }
 .desc-item::before {
-  content: '•';
+  content: '';
   position: absolute;
-  left: 0;
-  color: #60a5fa;
+  left: 4px;
+  top: 9px;
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: #3b82f6;
 }
 .tags {
   display: flex;
   flex-wrap: wrap;
-  gap: 8px;
+  gap: 6px;
 }
 .tag {
-  font-size: 12px;
-  padding: 4px 10px;
+  font-size: 11px;
+  padding: 3px 9px;
   border-radius: 999px;
-  border: 1px solid rgba(255, 255, 255, 0.1);
-}
-.tag--green {
   color: #4ade80;
-  border-color: rgba(74, 222, 128, 0.2);
-  background: rgba(74, 222, 128, 0.1);
+  background: rgba(74, 222, 128, 0.08);
+  border: 1px solid rgba(74, 222, 128, 0.15);
+}
+@keyframes cardIn {
+  from { opacity: 0; transform: translateY(16px); }
+  to { opacity: 1; transform: translateY(0); }
 }
 </style>

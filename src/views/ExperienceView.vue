@@ -1,30 +1,32 @@
 <template>
   <div class="page">
     <div class="content">
-      <h1 class="page-title">工作经历</h1>
-      <p class="page-subtitle">{{ summary }}</p>
+      <div class="header fade-in">
+        <h1 class="page-title">工作经历</h1>
+        <p class="page-subtitle">{{ summary }}</p>
+      </div>
 
-      <section v-for="exp in workExperience" :key="exp.company" class="section">
+      <section v-for="(exp, ei) in workExperience" :key="exp.company" class="section fade-in" :style="{ animationDelay: `${(ei + 1) * 100}ms` }">
         <div class="section-header">
           <h2 class="section-title">{{ exp.company }}</h2>
-          <span class="tag tag--blue">{{ exp.title }}</span>
+          <span class="badge badge--blue">{{ exp.title }}</span>
           <span class="section-period">{{ exp.period }}</span>
         </div>
         <div class="cards">
-          <ExperienceCard v-for="p in exp.projects" :key="p.name" :project="p" />
+          <ExperienceCard v-for="(p, pi) in exp.projects" :key="p.name" :project="p" :index="pi" />
         </div>
       </section>
 
-      <section class="section">
+      <section class="section fade-in" :style="{ animationDelay: `${(workExperience.length + 1) * 100}ms` }">
         <h2 class="section-title">教育背景</h2>
-        <div class="card">
-          <div class="card-header">
-            <h3 class="card-title">{{ education.school }}</h3>
-            <span class="card-period">{{ education.period }}</span>
+        <div class="edu-card">
+          <div class="edu-header">
+            <h3 class="edu-school">{{ education.school }}</h3>
+            <span class="edu-period">{{ education.period }}</span>
           </div>
-          <p class="card-desc">{{ education.degree }}</p>
+          <p class="edu-degree">{{ education.degree }}</p>
           <div class="tags">
-            <SkillBadge v-for="c in education.courses" :key="c" :skill="c" />
+            <SkillBadge v-for="(c, ci) in education.courses" :key="c" :skill="c" :delay="ci * 50" />
           </div>
         </div>
       </section>
@@ -47,25 +49,26 @@ import SkillBadge from '@/components/ui/SkillBadge.vue'
   z-index: 1;
 }
 .content {
-  max-width: 800px;
+  max-width: 780px;
   margin: 0 auto;
-  padding: 48px 24px;
+  padding: 56px 28px 80px;
 }
+.header { margin-bottom: 56px; }
 .page-title {
-  font-size: 30px;
+  font-size: 32px;
   font-weight: 700;
   color: #fff;
-  margin: 0 0 8px;
+  margin: 0 0 12px;
+  letter-spacing: -0.02em;
 }
 .page-subtitle {
   font-size: 14px;
-  color: rgba(255, 255, 255, 0.5);
-  margin: 0 0 48px;
-  line-height: 1.6;
+  color: rgba(255, 255, 255, 0.45);
+  margin: 0;
+  line-height: 1.7;
+  max-width: 600px;
 }
-.section {
-  margin-bottom: 48px;
-}
+.section { margin-bottom: 56px; }
 .section-header {
   display: flex;
   align-items: center;
@@ -80,57 +83,50 @@ import SkillBadge from '@/components/ui/SkillBadge.vue'
   margin: 0;
 }
 .section-period {
-  font-size: 14px;
-  color: rgba(255, 255, 255, 0.5);
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.35);
   margin-left: auto;
 }
-.cards {
-  display: flex;
-  flex-direction: column;
-  gap: 24px;
+.badge {
+  font-size: 12px;
+  padding: 4px 12px;
+  border-radius: 999px;
 }
-.card {
-  background: rgba(255, 255, 255, 0.05);
-  backdrop-filter: blur(8px);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: 12px;
-  padding: 24px;
+.badge--blue {
+  color: #60a5fa;
+  background: rgba(96, 165, 250, 0.1);
+  border: 1px solid rgba(96, 165, 250, 0.2);
 }
-.card-header {
+.cards { display: flex; flex-direction: column; gap: 20px; }
+.edu-card {
+  background: linear-gradient(135deg, rgba(255,255,255,0.05) 0%, rgba(255,255,255,0.01) 100%);
+  backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  border-radius: 16px;
+  padding: 28px;
+}
+.edu-header {
   display: flex;
   justify-content: space-between;
   align-items: flex-start;
-  margin-bottom: 12px;
+  margin-bottom: 8px;
 }
-.card-title {
-  font-size: 18px;
+.edu-school {
+  font-size: 17px;
   font-weight: 600;
-  color: #fff;
+  color: #f0f0f0;
   margin: 0;
 }
-.card-period {
-  font-size: 14px;
-  color: rgba(255, 255, 255, 0.5);
+.edu-period { font-size: 13px; color: rgba(255, 255, 255, 0.35); }
+.edu-degree {
+  font-size: 13.5px;
+  color: rgba(255, 255, 255, 0.55);
+  margin: 0 0 16px;
 }
-.card-desc {
-  font-size: 14px;
-  color: rgba(255, 255, 255, 0.7);
-  margin: 0 0 12px;
-}
-.tags {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-}
-.tag {
-  font-size: 12px;
-  padding: 4px 10px;
-  border-radius: 999px;
-  border: 1px solid rgba(255, 255, 255, 0.1);
-}
-.tag--blue {
-  color: #60a5fa;
-  border-color: rgba(96, 165, 250, 0.2);
-  background: rgba(96, 165, 250, 0.1);
+.tags { display: flex; flex-wrap: wrap; gap: 8px; }
+.fade-in { animation: fadeIn 0.6s ease both; }
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(12px); }
+  to { opacity: 1; transform: translateY(0); }
 }
 </style>

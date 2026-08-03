@@ -100,7 +100,7 @@ export const skills: SkillCategory[] = [
   { category: '可视化', items: ['ECharts', 'Canvas', 'SVG', 'WebGL', 'Three.js', 'GLSL'] },
   { category: '小程序', items: ['微信小程序'] },
   { category: 'Node.js', items: ['Express', '中间件开发'] },
-  { category: 'DevOps', items: ['Docker', 'Linux', 'Nginx', 'Git'] },
+  { category: 'DevOps', items: ['Docker', 'Linux', 'Nginx', 'Git', 'Hallmark'] },
 ]
 
 export const portfolioProjects: PortfolioProject[] = [

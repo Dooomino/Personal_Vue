@@ -1,66 +1,76 @@
 <template>
-  <div class="card">
+  <div class="card" :style="{ animationDelay: `${index * 80}ms` }">
     <h3 class="card-title">{{ project.name }}</h3>
     <p class="card-desc">{{ project.description }}</p>
     <div class="tags">
-      <span v-for="tech in project.techStack" :key="tech" class="tag tag--blue">{{ tech }}</span>
+      <span v-for="tech in project.techStack" :key="tech" class="tag">{{ tech }}</span>
     </div>
-    <a v-if="project.github" :href="project.github" target="_blank" class="card-link">GitHub →</a>
+    <a v-if="project.github" :href="project.github" target="_blank" class="card-link">
+      <span class="link-icon">↗</span> GitHub
+    </a>
   </div>
 </template>
 
 <script setup lang="ts">
 import type { PortfolioProject } from '@/data/resume'
-defineProps<{ project: PortfolioProject }>()
+defineProps<{ project: PortfolioProject; index?: number }>()
 </script>
 
 <style scoped>
 .card {
-  background: rgba(255, 255, 255, 0.05);
-  backdrop-filter: blur(8px);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: 12px;
-  padding: 24px;
-  transition: border-color 0.3s;
+  background: linear-gradient(135deg, rgba(255,255,255,0.06) 0%, rgba(255,255,255,0.02) 100%);
+  backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 16px;
+  padding: 28px;
+  transition: all 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+  animation: cardIn 0.5s ease both;
 }
 .card:hover {
-  border-color: rgba(255, 255, 255, 0.2);
+  border-color: rgba(96, 165, 250, 0.3);
+  transform: translateY(-4px);
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.3);
 }
 .card-title {
-  font-size: 18px;
+  font-size: 17px;
   font-weight: 600;
-  color: #fff;
-  margin: 0 0 8px;
+  color: #f0f0f0;
+  margin: 0 0 10px;
+  letter-spacing: -0.01em;
 }
 .card-desc {
-  font-size: 14px;
-  color: rgba(255, 255, 255, 0.7);
+  font-size: 13.5px;
+  color: rgba(255, 255, 255, 0.55);
   margin: 0 0 16px;
-  line-height: 1.6;
+  line-height: 1.65;
 }
 .tags {
   display: flex;
   flex-wrap: wrap;
-  gap: 8px;
+  gap: 6px;
   margin-bottom: 16px;
 }
 .tag {
-  font-size: 12px;
-  padding: 4px 10px;
+  font-size: 11px;
+  padding: 3px 9px;
   border-radius: 999px;
-  border: 1px solid rgba(255, 255, 255, 0.1);
-}
-.tag--blue {
   color: #60a5fa;
-  border-color: rgba(96, 165, 250, 0.2);
-  background: rgba(96, 165, 250, 0.1);
+  background: rgba(96, 165, 250, 0.08);
+  border: 1px solid rgba(96, 165, 250, 0.15);
 }
 .card-link {
-  font-size: 14px;
+  font-size: 13px;
   color: #60a5fa;
   text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  transition: color 0.2s;
 }
-.card-link:hover {
-  color: #93c5fd;
+.card-link:hover { color: #93c5fd; }
+.link-icon { font-size: 11px; }
+@keyframes cardIn {
+  from { opacity: 0; transform: translateY(16px); }
+  to { opacity: 1; transform: translateY(0); }
 }
 </style>
