@@ -3,6 +3,7 @@ import { RouterView, useRoute } from 'vue-router'
 import { onMounted, watch, ref } from 'vue';
 import { useThemeStore } from './stores/theme';
 import NavBar from '@/components/NavBar/NavBar.vue';
+import FooterBar from '@/components/FooterBar/FooterBar.vue';
 import BackCanvas from '@/components/background/BackCanvas.vue';
 
 const route = useRoute();
@@ -59,6 +60,9 @@ onMounted(() => {
         </div>
       </RouterView>
     </main>
+
+    <!-- 底部栏 -->
+    <FooterBar />
   </div>
 </template>
 

@@ -1,13 +1,15 @@
 <template>
-  <div class="navbar by-theme">
-    <!-- 左侧：可以放 Logo 和导航链接 -->
+  <div class="navbar">
     <div class="nav-left">
-      <!-- 预留位置给未来的导航项 -->
-      <n-img src="#" alt="Logo" class="nav-logo" />
-      <router-link to="/">Home</router-link>
-      <router-link to="/about">About</router-link>
+      <router-link to="/" class="nav-brand">陶雨迪</router-link>
+      <nav class="nav-links">
+        <router-link to="/">主页</router-link>
+        <router-link to="/experience">经历</router-link>
+        <router-link to="/portfolio">项目</router-link>
+        <router-link to="/about">关于</router-link>
+        <router-link to="/contact">联系</router-link>
+      </nav>
     </div>
-    <!-- 右侧：主题切换开关 -->
     <div class="nav-right">
       <n-switch :rail-style="railStyle" v-model:value="checked" @update:value="onUpdateChecked">
         <template #checked-icon>
@@ -20,6 +22,7 @@
     </div>
   </div>
 </template>
+
 <script setup lang="ts">
 import { Moon, Sun } from '@vicons/carbon'
 import type { CSSProperties } from 'vue'
@@ -30,7 +33,6 @@ import { ref, watch } from 'vue'
 const themeStore = useThemeStore()
 const checked = ref(themeStore.isDarkMode)
 
-// 监听主题状态变化，同步开关状态
 watch(
   () => themeStore.isDarkMode,
   (newVal) => {
@@ -40,7 +42,7 @@ watch(
 
 function railStyle({
   focused,
-  checked
+  checked,
 }: {
   focused: boolean
   checked: boolean
@@ -51,8 +53,7 @@ function railStyle({
     if (focused) {
       style.boxShadow = '0 0 0 2px #7c7c7c40'
     }
-  }
-  else {
+  } else {
     style.background = '#e6e6e6'
     if (focused) {
       style.boxShadow = '0 0 0 2px #e6e6e640'
@@ -70,25 +71,41 @@ function onUpdateChecked(value: boolean) {
 .navbar {
   width: 100%;
   height: 4rem;
-  padding-left: 1rem;
-  padding-right: 1rem;
+  padding: 0 1rem;
   flex-shrink: 0;
   display: flex;
   align-items: center;
   justify-content: space-between;
+  background: rgba(0, 0, 0, 0.6);
+  backdrop-filter: blur(8px);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
   z-index: 50;
 }
-
 .nav-left {
   display: flex;
   align-items: center;
-  gap: 1rem;
+  gap: 24px;
 }
-
-.nav-logo {
-  height: 2rem;
+.nav-brand {
+  font-size: 18px;
+  font-weight: 600;
+  color: #fff;
+  text-decoration: none;
 }
-
+.nav-links {
+  display: flex;
+  gap: 16px;
+}
+.nav-links a {
+  font-size: 14px;
+  color: rgba(255, 255, 255, 0.6);
+  text-decoration: none;
+  transition: color 0.3s;
+}
+.nav-links a:hover,
+.nav-links a.router-link-exact-active {
+  color: #60a5fa;
+}
 .nav-right {
   display: flex;
   align-items: center;
