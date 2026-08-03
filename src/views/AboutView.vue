@@ -29,21 +29,18 @@ import SkillBadge from '@/components/ui/SkillBadge.vue'
 <style scoped>
 .about-page {
   width: 100%;
-  height: 100%;
-  display: flex;
-  flex-direction: column;
+  overflow-y: auto;
+  position: relative;
+  z-index: 1;
 }
 .scene-section {
-  height: 40vh;
-  flex-shrink: 0;
+  width: 100%;
+  height: 50vh;
 }
 .content-section {
-  flex: 1;
-  overflow-y: auto;
   max-width: 780px;
   margin: 0 auto;
   padding: 32px 28px 80px;
-  width: 100%;
 }
 .page-title {
   font-size: 32px;
