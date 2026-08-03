@@ -1,5 +1,11 @@
 <template>
-  <div class="card" :style="{ animationDelay: `${index * 80}ms` }">
+  <div
+    ref="cardRef"
+    class="card"
+    :style="{ animationDelay: `${index * 80}ms`, transform }"
+    @mousemove="onMove"
+    @mouseleave="onLeave"
+  >
     <h3 class="card-title">{{ project.name }}</h3>
     <p class="card-desc">{{ project.description }}</p>
     <div class="tags">
@@ -12,8 +18,26 @@
 </template>
 
 <script setup lang="ts">
+import { ref } from 'vue'
 import type { PortfolioProject } from '@/data/resume'
+
 defineProps<{ project: PortfolioProject; index: number }>()
+
+const cardRef = ref<HTMLElement>()
+const transform = ref('')
+
+function onMove(e: MouseEvent) {
+  const el = cardRef.value
+  if (!el) return
+  const rect = el.getBoundingClientRect()
+  const x = (e.clientX - rect.left) / rect.width - 0.5
+  const y = (e.clientY - rect.top) / rect.height - 0.5
+  transform.value = `perspective(600px) rotateY(${x * 12}deg) rotateX(${-y * 12}deg) translateY(-4px)`
+}
+
+function onLeave() {
+  transform.value = ''
+}
 </script>
 
 <style scoped>
@@ -28,7 +52,6 @@ defineProps<{ project: PortfolioProject; index: number }>()
 }
 .card:hover {
   border-color: rgba(96, 165, 250, 0.3);
-  transform: translateY(-4px);
   box-shadow: 0 12px 40px rgba(0, 0, 0, 0.3);
 }
 .card-title {
