@@ -3,8 +3,7 @@
     ref="cardRef"
     class="card"
     :style="{ animationDelay: `${index * 80}ms`, transform }"
-    @mousemove="onMove"
-    @mouseleave="onLeave"
+    @mouseenter="onEnter"
   >
     <h3 class="card-title">{{ project.name }}</h3>
     <p class="card-desc">{{ project.description }}</p>
@@ -18,28 +17,49 @@
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue'
+import { ref, onMounted, onUnmounted } from 'vue'
 import type { PortfolioProject } from '@/data/resume'
 
 defineProps<{ project: PortfolioProject; index: number }>()
 
 const cardRef = ref<HTMLElement>()
 const transform = ref('')
+let active = false
 
-function onMove(e: MouseEvent) {
+function onEnter() { active = true }
+
+function onGlobalMove(e: MouseEvent) {
+  if (!active) return
   const el = cardRef.value
   if (!el) return
   const rect = el.getBoundingClientRect()
-  const x = (e.clientX - rect.left) / rect.width - 0.5
-  const y = (e.clientY - rect.top) / rect.height - 0.5
-  // sine: zero at edges, max at center
+  const pad = 80
+  const x = (e.clientX - (rect.left - pad)) / (rect.width + pad * 2) - 0.5
+  const y = (e.clientY - (rect.top - pad)) / (rect.height + pad * 2) - 0.5
+  const cx = Math.max(-0.5, Math.min(0.5, x))
+  const cy = Math.max(-0.5, Math.min(0.5, y))
+  if (Math.abs(cx) > 0.495 || Math.abs(cy) > 0.495) {
+    transform.value = ''
+    return
+  }
   const ease = (v: number) => Math.sin(v * Math.PI)
-  transform.value = `perspective(800px) rotateY(${ease(x) * 10}deg) rotateX(${ease(y) * -10}deg) translateY(-4px)`
+  transform.value = `perspective(800px) rotateY(${ease(cx) * 10}deg) rotateX(${ease(cy) * -10}deg) translateY(-4px)`
 }
 
-function onLeave() {
+function onGlobalLeave() {
+  active = false
   transform.value = ''
 }
+
+onMounted(() => {
+  document.addEventListener('mousemove', onGlobalMove)
+  document.addEventListener('mouseleave', onGlobalLeave)
+})
+
+onUnmounted(() => {
+  document.removeEventListener('mousemove', onGlobalMove)
+  document.removeEventListener('mouseleave', onGlobalLeave)
+})
 </script>
 
 <style scoped>
