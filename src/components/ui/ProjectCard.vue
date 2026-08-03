@@ -47,7 +47,7 @@ function onLeave() {
   border: 1px solid rgba(255, 255, 255, 0.08);
   border-radius: 16px;
   padding: 28px;
-  transition: border-color 0.3s, box-shadow 0.3s;
+  transition: transform 0.15s ease-out, border-color 0.3s, box-shadow 0.3s;
   animation: cardIn 0.5s ease both;
 }
 .card:hover {
