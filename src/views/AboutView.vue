@@ -30,7 +30,7 @@ import SkillBadge from '@/components/ui/SkillBadge.vue'
 .about-page {
   height: 100%;
   width: 100%;
-  overflow-y: auto;
+  overflow: hidden auto;
   position: relative;
   z-index: 1;
 }
