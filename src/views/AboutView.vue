@@ -1,20 +1,18 @@
 <template>
   <div class="about-page">
-    <div class="scene-half">
+    <div class="scene-section">
       <AboutContainer />
     </div>
-    <div class="content-half">
-      <div class="content-inner fade-in">
-        <h1 class="page-title">关于我</h1>
-        <p class="page-subtitle">{{ summary }}</p>
+    <div class="content-section">
+      <h1 class="page-title">关于我</h1>
+      <p class="page-subtitle">{{ summary }}</p>
 
-        <h2 class="section-title">技术栈</h2>
-        <div class="skills-grid">
-          <div v-for="(s, si) in skills" :key="s.category" class="skill-card" :style="{ animationDelay: `${si * 60}ms` }">
-            <h3 class="skill-category">{{ s.category }}</h3>
-            <div class="tags">
-              <SkillBadge v-for="(item, ii) in s.items" :key="item" :skill="item" :delay="ii * 30" />
-            </div>
+      <h2 class="section-title">技术栈</h2>
+      <div class="skills-grid">
+        <div v-for="(s, si) in skills" :key="s.category" class="skill-card" :style="{ animationDelay: `${si * 60}ms` }">
+          <h3 class="skill-category">{{ s.category }}</h3>
+          <div class="tags">
+            <SkillBadge v-for="(item, ii) in s.items" :key="item" :skill="item" :delay="ii * 30" />
           </div>
         </div>
       </div>
@@ -35,12 +33,17 @@ import SkillBadge from '@/components/ui/SkillBadge.vue'
   display: flex;
   flex-direction: column;
 }
-.scene-half { height: 50%; flex-shrink: 0; }
-.content-half { flex: 1; overflow-y: auto; }
-.content-inner {
+.scene-section {
+  height: 40vh;
+  flex-shrink: 0;
+}
+.content-section {
+  flex: 1;
+  overflow-y: auto;
   max-width: 780px;
   margin: 0 auto;
-  padding: 48px 28px 80px;
+  padding: 32px 28px 80px;
+  width: 100%;
 }
 .page-title {
   font-size: 32px;
@@ -88,11 +91,6 @@ import SkillBadge from '@/components/ui/SkillBadge.vue'
   letter-spacing: 0.04em;
 }
 .tags { display: flex; flex-wrap: wrap; gap: 6px; }
-.fade-in { animation: fadeIn 0.6s ease both; }
-@keyframes fadeIn {
-  from { opacity: 0; transform: translateY(12px); }
-  to { opacity: 1; transform: translateY(0); }
-}
 @keyframes cardIn {
   from { opacity: 0; transform: translateY(12px); }
   to { opacity: 1; transform: translateY(0); }
