@@ -1,6 +1,6 @@
 <template>
   <!-- 根容器：占满父元素 -->
-  <div class="h-full w-full">
+  <div class="u-h-full u-w-full">
     <!-- 内容层：MainContainer -->
     <MainContainer />
   </div>

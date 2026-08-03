@@ -1,14 +1,14 @@
 <template>
-  <div class="navbar by-theme text-gray-800 dark:text-white w-full h-16 px-4 flex-shrink-0 flex items-center justify-between bg-light-bg dark:bg-dark-bg z-50">
+  <div class="navbar by-theme">
     <!-- 左侧：可以放 Logo 和导航链接 -->
-    <div class="flex items-center gap-4">
+    <div class="nav-left">
       <!-- 预留位置给未来的导航项 -->
-      <n-img src="#" alt="Logo" class="h-8" />
+      <n-img src="#" alt="Logo" class="nav-logo" />
       <router-link to="/">Home</router-link>
       <router-link to="/about">About</router-link>
     </div>
     <!-- 右侧：主题切换开关 -->
-    <div class="flex items-center">
+    <div class="nav-right">
       <n-switch :rail-style="railStyle" v-model:value="checked" @update:value="onUpdateChecked">
         <template #checked-icon>
           <n-icon :component="Moon" />
@@ -67,16 +67,30 @@ function onUpdateChecked(value: boolean) {
 </script>
 
 <style scoped>
-.nav-bar span{
-  cursor: pointer;
-  border-bottom: 4px solid transparent;
-  border-bottom-width: 0;
-  padding:0.3rem 0;
-  transition: all 0.3s ease-in-out;
+.navbar {
+  width: 100%;
+  height: 4rem;
+  padding-left: 1rem;
+  padding-right: 1rem;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  z-index: 50;
 }
 
-.nav-bar span:hover{
-  border-bottom: 4px solid #3b82f6;
-  border-bottom-width: 4px ;
+.nav-left {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.nav-logo {
+  height: 2rem;
+}
+
+.nav-right {
+  display: flex;
+  align-items: center;
 }
 </style>

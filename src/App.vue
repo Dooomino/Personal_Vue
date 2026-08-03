@@ -39,18 +39,18 @@ onMounted(() => {
 
 <template>
   <!-- 上下布局容器 -->
-  <div class="h-full w-full by-theme flex flex-col">
+  <div class="u-w-full u-h-full by-theme u-flex u-flex-col">
     <!-- 导航栏：全局唯一 -->
     <NavBar />
 
     <!-- BackCanvas 背景层（仅在 Home 路由显示） -->
-    <div v-if="isHomeRoute" class="back-canvas-wrapper absolute inset-0 z-0 pointer-events-none">
+    <div v-if="isHomeRoute" class="back-canvas-wrapper u-absolute u-inset-0 u-z-0 u-pointer-events-none">
       <!-- 使用时间戳确保每次都创建全新的 canvas DOM，避免 WebGL 上下文冲突 -->
       <BackCanvas :key="`bc-${backCanvasKey}-${Date.now()}`" />
     </div>
 
     <!-- 主内容区域：flex-1 自动填充剩余空间 -->
-    <main class="flex-1 w-full relative overflow-hidden">
+    <main class="u-flex-1 u-w-full u-relative u-overflow-hidden">
       <!-- 路由视图：根据路由切换不同页面 -->
       <RouterView v-slot="{ Component, route }">
         <!-- 使用 CSS 动画实现页面淡入效果，通过 key 强制重新触发动画 -->

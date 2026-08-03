@@ -34,7 +34,7 @@ class SimplexNoise {
     // 如果提供了种子，则重新初始化以确保可重现的结果
     if (seed !== undefined) {
       // 重置随机数生成器以确保可重现的结果
-      let random = this.srandom(seed);
+      const random = this.srandom(seed);
       p = new Uint8Array(PERLIN_SIZE + 1);
       for (let i = 0; i < PERLIN_SIZE + 1; i++) {
         p[i] = Math.floor(random() * 255);

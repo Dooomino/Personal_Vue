@@ -1,6 +1,6 @@
 <template>
   <div
-    class="w-full h-full canvas-container"
+    class="u-w-full u-h-full canvas-container"
     :class="{'web-blur': isLostFocus && !TESTING }"
     tabindex="0"
     @focus="isLostFocus = false"

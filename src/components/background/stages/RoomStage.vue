@@ -29,7 +29,7 @@
   let isActive = true
   const INACTIVE_TIMEOUT = 1000 // 1秒无操作后降低帧率
   const LOW_FPS_INTERVAL = 1000 / 5 // 降低到5fps，即每200ms执行一次
-  let lastFrameTime = 0
+  const lastFrameTime = 0
   const isMouseAction = shallowRef(false)
   onMounted(async() => {
     if (canvasRef.value) {

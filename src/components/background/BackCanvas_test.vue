@@ -471,7 +471,7 @@ function updateThreeObjects(){
   }
 };
 function initPanel(){
-  /* eslint-disable-next-line */
+   
   const gui = new GUI({title: 'Panel'});
 
   // 材质设置文件夹

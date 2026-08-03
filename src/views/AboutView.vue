@@ -1,6 +1,6 @@
 <template>
   <!-- 根容器：占满父元素 -->
-  <div class="about h-full w-full flex items-center justify-center">
+  <div class="about u-h-full u-w-full u-flex u-items-center u-justify-center">
     <AboutContainer />
   </div>
 </template>

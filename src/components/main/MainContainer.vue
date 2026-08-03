@@ -1,6 +1,6 @@
 <template>
-  <div class="h-full w-full main">
-    <canvas ref="canvas" class="h-full w-full"></canvas>
+  <div class="u-h-full u-w-full main">
+    <canvas ref="canvas" class="u-h-full u-w-full"></canvas>
   </div>
 </template>
 <script setup lang="ts">

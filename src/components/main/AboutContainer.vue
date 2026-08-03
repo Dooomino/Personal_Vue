@@ -1,12 +1,12 @@
 <template>
-  <div class="h-full w-full main">
-    <div class="h-full w-full main-content flex flex-col items-center justify-center">
-      <div class="h-full w-full main-content-inner flex flex-col items-center justify-center">
+  <div class="u-h-full u-w-full main">
+    <div class="u-h-full u-w-full main-content u-flex u-flex-col u-items-center u-justify-center">
+      <div class="u-h-full u-w-full main-content-inner u-flex u-flex-col u-items-center u-justify-center">
         <!-- <div class="main-content-title">Hello, World!</div>
         <div class="main-content-text">
           This is a sample website to demonstrate the use of the by-theme class.
         </div> -->
-        <canvas ref="canvas" class="w-full h-full main-bg"></canvas>
+        <canvas ref="canvas" class="u-w-full u-h-full main-bg"></canvas>
 
         <!-- 添加 Tooltip 组件 -->
         <Transition name="tooltip">
