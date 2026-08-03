@@ -17,7 +17,7 @@
 
 <script setup lang="ts">
 import type { WorkProject } from '@/data/resume'
-defineProps<{ project: WorkProject; index?: number }>()
+defineProps<{ project: WorkProject; index: number }>()
 </script>
 
 <style scoped>
