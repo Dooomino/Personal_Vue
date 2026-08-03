@@ -118,6 +118,7 @@ onMounted(() => {
 
 /* 页面淡入动画 - 用于路由切换 */
 .page-fade-in {
+  height: 100%;
   animation: fadeIn 0.6s ease-out;
 }
 
