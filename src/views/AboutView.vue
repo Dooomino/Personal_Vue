@@ -9,12 +9,20 @@
 
       <h2 class="section-title">技术栈</h2>
       <div class="skills-grid">
-        <div v-for="(s, si) in skills" :key="s.category" class="skill-card" :style="{ animationDelay: `${si * 60}ms` }">
+        <motion.div
+          v-for="(s, si) in skills"
+          :key="s.category"
+          class="skill-card"
+          :initial="{ opacity: 0, y: 12 }"
+          :animate="{ opacity: 1, y: 0 }"
+          :transition="{ delay: si * 0.06, type: 'spring', stiffness: 300, damping: 25 }"
+          :while-hover="{ borderColor: 'rgba(96, 165, 250, 0.4)', scale: 1.01 }"
+        >
           <h3 class="skill-category">{{ s.category }}</h3>
           <div class="tags">
             <SkillBadge v-for="(item, ii) in s.items" :key="item" :skill="item" :delay="ii * 30" />
           </div>
-        </div>
+        </motion.div>
       </div>
     </div>
   </div>
@@ -24,6 +32,7 @@
 import { summary, skills } from '@/data/resume'
 import AboutContainer from '@/components/main/AboutContainer.vue'
 import SkillBadge from '@/components/ui/SkillBadge.vue'
+import { motion } from 'motion-v'
 </script>
 
 <style scoped>
@@ -76,10 +85,8 @@ import SkillBadge from '@/components/ui/SkillBadge.vue'
   border: 1px solid rgba(255, 255, 255, 0.06);
   border-radius: 14px;
   padding: 18px;
-  animation: cardIn 0.5s ease both;
   transition: border-color 0.3s;
 }
-.skill-card:hover { border-color: rgba(96, 165, 250, 0.2); }
 .skill-category {
   font-size: 12px;
   font-weight: 600;
@@ -89,8 +96,4 @@ import SkillBadge from '@/components/ui/SkillBadge.vue'
   letter-spacing: 0.04em;
 }
 .tags { display: flex; flex-wrap: wrap; gap: 6px; }
-@keyframes cardIn {
-  from { opacity: 0; transform: translateY(12px); }
-  to { opacity: 1; transform: translateY(0); }
-}
 </style>

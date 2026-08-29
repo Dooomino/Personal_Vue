@@ -58,9 +58,13 @@ html,
 body,
 #app {
   font-size: 16px;
+  min-height: 100vh;
   height: 100vh;
+  overflow: hidden;
   @include transition(background-color);
 }
+
+
 
 // === Theme ===
 .by-theme {

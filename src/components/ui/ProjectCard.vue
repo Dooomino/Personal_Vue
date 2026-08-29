@@ -1,65 +1,25 @@
 <template>
-  <div
-    ref="cardRef"
-    class="card"
-    :style="{ animationDelay: `${index * 80}ms`, transform }"
-    @mouseenter="onEnter"
-  >
+  <div class="card">
     <h3 class="card-title">{{ project.name }}</h3>
     <p class="card-desc">{{ project.description }}</p>
     <div class="tags">
       <span v-for="tech in project.techStack" :key="tech" class="tag">{{ tech }}</span>
     </div>
-    <a v-if="project.github" :href="project.github" target="_blank" class="card-link">
-      <span class="link-icon">↗</span> GitHub
-    </a>
+    <div class="links">
+      <a v-if="project.github" :href="project.github" target="_blank" class="card-link">
+        <span class="link-icon">↗</span> GitHub
+      </a>
+      <a v-if="project.demo" :href="project.demo" target="_blank" class="card-link">
+        <span class="link-icon">↗</span> Demo
+      </a>
+    </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted } from 'vue'
 import type { PortfolioProject } from '@/data/resume'
 
 defineProps<{ project: PortfolioProject; index: number }>()
-
-const cardRef = ref<HTMLElement>()
-const transform = ref('')
-let active = false
-
-function onEnter() { active = true }
-
-function onGlobalMove(e: MouseEvent) {
-  if (!active) return
-  const el = cardRef.value
-  if (!el) return
-  const rect = el.getBoundingClientRect()
-  const pad = 80
-  const x = (e.clientX - (rect.left - pad)) / (rect.width + pad * 2) - 0.5
-  const y = (e.clientY - (rect.top - pad)) / (rect.height + pad * 2) - 0.5
-  const cx = Math.max(-0.5, Math.min(0.5, x))
-  const cy = Math.max(-0.5, Math.min(0.5, y))
-  if (Math.abs(cx) > 0.495 || Math.abs(cy) > 0.495) {
-    transform.value = ''
-    return
-  }
-  const ease = (v: number) => Math.sin(v * Math.PI)
-  transform.value = `perspective(800px) rotateY(${ease(cx) * 10}deg) rotateX(${ease(cy) * -10}deg) translateY(-4px)`
-}
-
-function onGlobalLeave() {
-  active = false
-  transform.value = ''
-}
-
-onMounted(() => {
-  document.addEventListener('mousemove', onGlobalMove)
-  document.addEventListener('mouseleave', onGlobalLeave)
-})
-
-onUnmounted(() => {
-  document.removeEventListener('mousemove', onGlobalMove)
-  document.removeEventListener('mouseleave', onGlobalLeave)
-})
 </script>
 
 <style scoped>
@@ -69,8 +29,7 @@ onUnmounted(() => {
   border: 1px solid rgba(255, 255, 255, 0.08);
   border-radius: 16px;
   padding: 28px;
-  transition: transform 0.15s ease-out, border-color 0.3s, box-shadow 0.3s;
-  animation: cardIn 0.5s ease both;
+  transition: border-color 0.3s, box-shadow 0.3s;
 }
 .card:hover {
   border-color: rgba(96, 165, 250, 0.3);
@@ -103,6 +62,10 @@ onUnmounted(() => {
   background: rgba(96, 165, 250, 0.08);
   border: 1px solid rgba(96, 165, 250, 0.15);
 }
+.links {
+  display: flex;
+  gap: 12px;
+}
 .card-link {
   font-size: 13px;
   color: #60a5fa;
@@ -114,8 +77,4 @@ onUnmounted(() => {
 }
 .card-link:hover { color: #93c5fd; }
 .link-icon { font-size: 11px; }
-@keyframes cardIn {
-  from { opacity: 0; }
-  to { opacity: 1; }
-}
 </style>

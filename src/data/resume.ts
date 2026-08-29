@@ -22,6 +22,7 @@ export interface PortfolioProject {
   description: string
   techStack: string[]
   github?: string
+  demo?: string
 }
 
 export interface Education {
@@ -112,6 +113,13 @@ export const portfolioProjects: PortfolioProject[] = [
     github: 'https://github.com/Dooomino/Personal_Vue',
   },
   {
+    name: 'MagicCircle',
+    description: '一个魔法阵生成器，基于 Processing 和 JavaScript 构建，支持自定义样式与实时预览。',
+    techStack: ['Processing', 'JavaScript', 'Canvas'],
+    github: 'https://github.com/Dooomino/MagicCircle',
+    demo: 'https://dooomino.github.io/MagicCircle/',
+  },
+  {
     name: '太阳系',
     description: '一个使用 Processing 和 P5.js 的太阳系演示。',
     techStack: ['Processing', 'P5.js'],
@@ -134,6 +142,50 @@ export const portfolioProjects: PortfolioProject[] = [
     description: '一个生成伪随机符文的简单项目。',
     techStack: ['Processing'],
     github: 'https://github.com/Dooomino/rune_generator',
+  },
+  {
+    name: 'Cellular Automata',
+    description: '一个基于 Canvas 的生命游戏（Game of Life）演示，支持自定义规则与交互操作。',
+    techStack: ['JavaScript', 'Canvas', 'HTML5'],
+    github: 'https://github.com/Dooomino/Cellular-Automata',
+    demo: 'https://dooomino.github.io/Cellular-Automata/',
+  },
+  {
+    name: 'WebGL Cube',
+    description: '一个 WebGL 基础示例，展示带光照效果的 3D 立方体渲染。',
+    techStack: ['WebGL', 'JavaScript', 'GLSL'],
+    github: 'https://github.com/Dooomino/WebGl-Example',
+    demo: 'https://dooomino.github.io/WebGl-Example/',
+  },
+  {
+    name: '立体视觉展示',
+    description: '一个对立体视觉的两种算法的演示，基于 Jupyter Notebook 构建。',
+    techStack: ['Python', 'Jupyter Notebook', 'Computer Vision'],
+    github: 'https://github.com/Dooomino/Stereoscopic-Demo',
+  },
+  {
+    name: 'Flight Simulator',
+    description: '一个使用 Unity 引擎开发的飞行模拟器游戏。',
+    techStack: ['Unity', 'C#'],
+    github: 'https://github.com/Dooomino/Flight-Simulation-Games',
+  },
+  {
+    name: 'ObjViewer',
+    description: '一个简单的 OpenGL 文件读取器，用于显示 .obj 格式的 3D 模型文件。',
+    techStack: ['OpenGL', 'C++'],
+    github: 'https://github.com/Dooomino/ObjViewer',
+  },
+  {
+    name: 'Flocking Boids',
+    description: '一个在 OpenGL 中实现的 Boids 群体行为模拟与动画演示。',
+    techStack: ['OpenGL', 'C++'],
+    github: 'https://github.com/Dooomino/Flocking_Boids',
+  },
+  {
+    name: 'GPU-ASCII',
+    description: '基于 wgpu 计算着色器的 GPU 加速图像转 ASCII 转换器与终端游戏引擎，支持实时渲染与跨语言 FFI。',
+    techStack: ['Python', 'Rust', 'wgpu', 'Compute Shader'],
+    github: 'https://github.com/Dooomino/gpu-ascii',
   },
 ]
 

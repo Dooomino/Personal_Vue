@@ -15,7 +15,9 @@ const year = new Date().getFullYear()
   font-size: 12px;
   color: rgba(255, 255, 255, 0.25);
   border-top: 1px solid rgba(255, 255, 255, 0.03);
+  background-color: rgba(0, 0, 0, 1);
   flex-shrink: 0;
+  z-index: 1000;
 }
 .footer a {
   color: rgba(255, 255, 255, 0.25);
