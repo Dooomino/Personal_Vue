@@ -38,6 +38,8 @@ const emit = defineEmits<{ snap: []; unsnap: [] }>()
 provide('slideCanvasRef', canvasEl)
 
 let checkInterval = 0
+let lastEmitTime = 0
+const DEBOUNCE_MS = 500
 
 function checkVisibility() {
   const node = el.value?.$el ?? el.value
@@ -49,10 +51,14 @@ function checkVisibility() {
   const isVisible = rect.top < cRect.bottom && rect.bottom > cRect.top
 
   if (isVisible && !hasSnapped.value) {
+    if (Date.now() - lastEmitTime < DEBOUNCE_MS) return
     hasSnapped.value = true
+    lastEmitTime = Date.now()
     emit('snap')
   } else if (!isVisible && hasSnapped.value) {
+    if (Date.now() - lastEmitTime < DEBOUNCE_MS) return
     hasSnapped.value = false
+    lastEmitTime = Date.now()
     emit('unsnap')
   }
 }
