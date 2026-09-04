@@ -7,18 +7,15 @@ import gsap from 'gsap'
  * animated 变回 false 时清除 canvas，允许下次重新触发。
  *
  * 用法：
- *   const { canvasRef, animationDone } = useSlideCanvas(() => props.animated)
+ *   const { canvasRef, animationDone } = useSlideCanvas(() => props.animated, canvasRef)
  *   watch(() => props.animated, (v) => {
  *     if (v) animationDone.then(() => { ... })
  *   })
  */
 export function useSlideCanvas(
   animated: () => boolean | undefined,
-  externalCanvas?: Ref<HTMLCanvasElement | null>
+  canvasRef: Ref<HTMLCanvasElement | null>
 ) {
-  const internalRef = ref<HTMLCanvasElement | null>(null)
-  const canvasRef = externalCanvas ?? internalRef
-
   let resolveAnimation: (() => void) | null = null
   let animationDone: Promise<void> = Promise.resolve()
   let pendingTimer = 0
@@ -33,9 +30,8 @@ export function useSlideCanvas(
   }
 
   function drawAndFadeIn() {
-    if (!animated()) return
+    if (!animated() || !canvasRef.value) return
     const canvas = canvasRef.value
-    if (!canvas) return
     const ctx = canvas.getContext('2d')
     if (!ctx) return
 
@@ -50,10 +46,6 @@ export function useSlideCanvas(
 
     ctx.fillStyle = gradient
     ctx.fillRect(0, 0, width, height)
-
-    animationDone = new Promise<void>((resolve) => {
-      resolveAnimation = resolve
-    })
 
     gsap.fromTo(canvas,
       { opacity: 0 },
