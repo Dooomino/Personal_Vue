@@ -1,5 +1,4 @@
 <template>
-  <canvas class="slide-canvas" ref="canvasRef"></canvas>
   <SlideContent
     :project="project"
     :container="container"
@@ -13,6 +12,7 @@
 import type { PortfolioProject } from '@/data/resume'
 import SlideContent from './SlideContent.vue'
 import { useSlideCanvas } from '@/composables/useSlideCanvas'
+import { inject, computed } from 'vue'
 
 const props = defineProps<{
   project: PortfolioProject
@@ -21,5 +21,8 @@ const props = defineProps<{
   animated?: boolean
 }>()
 
-const { canvasRef } = useSlideCanvas(() => props.animated)
+const canvasMap = inject<Map<string, HTMLCanvasElement>>('slideCanvasMap')!
+const canvasEl = computed(() => canvasMap.get(props.project.name) ?? null)
+
+useSlideCanvas(() => props.animated, canvasEl)
 </script>

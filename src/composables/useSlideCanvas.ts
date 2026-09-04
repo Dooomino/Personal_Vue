@@ -1,23 +1,27 @@
-import { ref, watch, nextTick } from 'vue'
+import { ref, watch, nextTick, type Ref } from 'vue'
 import gsap from 'gsap'
 
 /**
  * 通用 slide canvas 渐变动画。
  * 在 animated 变为 true 时，绘制白色线性渐变并淡入。
  * animated 变回 false 时清除 canvas，允许下次重新触发。
+ *
+ * 用法：
+ *   const { canvasRef, animationDone } = useSlideCanvas(() => props.animated)
+ *   watch(() => props.animated, (v) => {
+ *     if (v) animationDone.then(() => { ... })
+ *   })
  */
-export function useSlideCanvas(animated: () => boolean | undefined) {
-  const canvasRef = ref<HTMLCanvasElement | null>(null)
+export function useSlideCanvas(
+  animated: () => boolean | undefined,
+  externalCanvas?: Ref<HTMLCanvasElement | null>
+) {
+  const internalRef = ref<HTMLCanvasElement | null>(null)
+  const canvasRef = externalCanvas ?? internalRef
 
-  let resolveAnimation: () => void
-  let animationDone = createPromise()
+  let resolveAnimation: (() => void) | null = null
+  let animationDone: Promise<void> = Promise.resolve()
   let pendingTimer = 0
-
-  function createPromise() {
-    return new Promise<void>((resolve) => {
-      resolveAnimation = resolve
-    })
-  }
 
   function clearCanvas() {
     const canvas = canvasRef.value
@@ -47,16 +51,22 @@ export function useSlideCanvas(animated: () => boolean | undefined) {
     ctx.fillStyle = gradient
     ctx.fillRect(0, 0, width, height)
 
+    animationDone = new Promise<void>((resolve) => {
+      resolveAnimation = resolve
+    })
+
     gsap.fromTo(canvas,
       { opacity: 0 },
-      { opacity: 1, duration: 1, onComplete: resolveAnimation }
+      { opacity: 1, duration: 1, onComplete: resolveAnimation! }
     )
   }
 
   watch(animated, (v) => {
     clearTimeout(pendingTimer)
     if (v) {
-      animationDone = createPromise()
+      animationDone = new Promise<void>((resolve) => {
+        resolveAnimation = resolve
+      })
       pendingTimer = setTimeout(() => nextTick(drawAndFadeIn), 1000)
     } else {
       clearCanvas()

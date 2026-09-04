@@ -194,16 +194,4 @@ onBeforeUnmount(() => ctx?.revert())
 }
 
 </style>
-<style >
-.slide-canvas {
-  position: absolute;
-  display: block;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  pointer-events: none;
-  /* background: blue; */
-}
-</style>
 <!-- ponytail: keep hardcoded hover, upgrade path: --primary-color-light var -->
