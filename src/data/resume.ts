@@ -23,6 +23,7 @@ export interface PortfolioProject {
   techStack: string[]
   github?: string
   demo?: string
+  variant?: 'fade-up' | 'fade-left' | 'scale' | 'blur' | 'none'
 }
 
 export interface Education {
@@ -111,6 +112,7 @@ export const portfolioProjects: PortfolioProject[] = [
       '基于 Vue 3 + TypeScript + Three.js 构建的 3D 交互式个人网站。实现自定义 GLSL 着色器（Toon、Moebius、Waves 等多种风格），完成场景渲染与动态光照效果。',
     techStack: ['Vue 3', 'TypeScript', 'Three.js', 'GLSL', 'Vite'],
     github: 'https://github.com/Dooomino/Personal_Vue',
+    variant: 'fade-up',
   },
   {
     name: 'MagicCircle',
@@ -118,30 +120,35 @@ export const portfolioProjects: PortfolioProject[] = [
     techStack: ['Processing', 'JavaScript', 'Canvas'],
     github: 'https://github.com/Dooomino/MagicCircle',
     demo: 'https://dooomino.github.io/MagicCircle/',
+    variant: 'scale',
   },
   {
     name: '太阳系',
     description: '一个使用 Processing 和 P5.js 的太阳系演示。',
     techStack: ['Processing', 'P5.js'],
     github: 'https://github.com/Dooomino/Solar',
+    variant: 'fade-left',
   },
   {
     name: 'OpenGL 太阳系演示',
     description: '一个 OpenGL 程序，显示由立方体组成的太阳系，大小和运动比例与现实中的太阳系相似。',
     techStack: ['OpenGL', 'C++'],
     github: 'https://github.com/Dooomino/OpenGL-Solar-System',
+    variant: 'blur',
   },
   {
     name: '文字故障',
     description: '一个类似于终端的 Glitch 文本图像生成器，基于 HTML5 的 SVG 和 Canvas 构建。',
     techStack: ['HTML5', 'SVG', 'Canvas', 'JavaScript'],
     github: 'https://github.com/Dooomino/Text-Glitch',
+    variant: 'fade-up',
   },
   {
     name: '符文生成器',
     description: '一个生成伪随机符文的简单项目。',
     techStack: ['Processing'],
     github: 'https://github.com/Dooomino/rune_generator',
+    variant: 'scale',
   },
   {
     name: 'Cellular Automata',
@@ -149,6 +156,7 @@ export const portfolioProjects: PortfolioProject[] = [
     techStack: ['JavaScript', 'Canvas', 'HTML5'],
     github: 'https://github.com/Dooomino/Cellular-Automata',
     demo: 'https://dooomino.github.io/Cellular-Automata/',
+    variant: 'fade-left',
   },
   {
     name: 'WebGL Cube',
@@ -156,36 +164,42 @@ export const portfolioProjects: PortfolioProject[] = [
     techStack: ['WebGL', 'JavaScript', 'GLSL'],
     github: 'https://github.com/Dooomino/WebGl-Example',
     demo: 'https://dooomino.github.io/WebGl-Example/',
+    variant: 'blur',
   },
   {
     name: '立体视觉展示',
     description: '一个对立体视觉的两种算法的演示，基于 Jupyter Notebook 构建。',
     techStack: ['Python', 'Jupyter Notebook', 'Computer Vision'],
     github: 'https://github.com/Dooomino/Stereoscopic-Demo',
+    variant: 'fade-up',
   },
   {
     name: 'Flight Simulator',
     description: '一个使用 Unity 引擎开发的飞行模拟器游戏。',
     techStack: ['Unity', 'C#'],
     github: 'https://github.com/Dooomino/Flight-Simulation-Games',
+    variant: 'scale',
   },
   {
     name: 'ObjViewer',
     description: '一个简单的 OpenGL 文件读取器，用于显示 .obj 格式的 3D 模型文件。',
     techStack: ['OpenGL', 'C++'],
     github: 'https://github.com/Dooomino/ObjViewer',
+    variant: 'fade-left',
   },
   {
     name: 'Flocking Boids',
     description: '一个在 OpenGL 中实现的 Boids 群体行为模拟与动画演示。',
     techStack: ['OpenGL', 'C++'],
     github: 'https://github.com/Dooomino/Flocking_Boids',
+    variant: 'blur',
   },
   {
     name: 'GPU-ASCII',
     description: '基于 wgpu 计算着色器的 GPU 加速图像转 ASCII 转换器与终端游戏引擎，支持实时渲染与跨语言 FFI。',
     techStack: ['Python', 'Rust', 'wgpu', 'Compute Shader'],
     github: 'https://github.com/Dooomino/gpu-ascii',
+    variant: 'fade-up',
   },
 ]
 
