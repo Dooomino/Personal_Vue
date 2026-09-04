@@ -1,19 +1,22 @@
 <template>
-  <motion.div
-    :key="key"
-    ref="el"
-    class="slide-reveal"
-    :initial="initial"
-    :animate="hasSnapped ? animate : initial"
-    :transition="transition"
-    :style="style"
-  >
-    <slot />
-  </motion.div>
+  <div class="slide-reveal-wrap">
+    <canvas ref="canvasEl" class="slide-canvas"></canvas>
+    <motion.div
+      :key="key"
+      ref="el"
+      class="slide-reveal"
+      :initial="initial"
+      :animate="hasSnapped ? animate : initial"
+      :transition="transition"
+      :style="style"
+    >
+      <slot />
+    </motion.div>
+  </div>
 </template>
 
 <script setup lang="ts">
-import { ref, computed, watch, onMounted, onUnmounted, type CSSProperties } from 'vue'
+import { ref, computed, watch, onMounted, onUnmounted, provide, type CSSProperties } from 'vue'
 import { motion } from 'motion-v'
 
 const props = withDefaults(defineProps<{
@@ -28,8 +31,11 @@ const props = withDefaults(defineProps<{
 })
 
 const el = ref<HTMLElement | null>(null)
+const canvasEl = ref<HTMLCanvasElement | null>(null)
 const hasSnapped = ref(false)
 const emit = defineEmits<{ snap: []; unsnap: [] }>()
+
+provide('slideCanvasRef', canvasEl)
 
 let checkInterval = 0
 
@@ -95,6 +101,17 @@ watch(() => props.container, (c) => { if (c) key.value++ })
 </script>
 
 <style>
+.slide-reveal-wrap {
+  position: relative;
+  width: 100%;
+  height: 100%;
+}
+.slide-canvas {
+  position: absolute;
+  top: 0; left: 0;
+  width: 100%; height: 100%;
+  pointer-events: none;
+}
 .slide-reveal {
   width: 100%;
   display: flex;
