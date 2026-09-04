@@ -1,7 +1,6 @@
 <template>
   <!-- 上下布局容器 -->
   <div class="app-container">
-    <!-- 导航栏：全局唯一 -->
     <NavBar />
 
     <!-- BackCanvas 背景层（仅在 Home 路由显示） -->

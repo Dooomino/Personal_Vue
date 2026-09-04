@@ -35,22 +35,40 @@ $transition-fast: 0.3s linear;
   --light-text: #{$light-text};
   --dark-background-color: #{$dark-bg};
   --dark-text: #{$dark-text};
+  --text-primary: #{$light-text};
+  --text-secondary: rgba(0, 0, 0, 0.55);
+  --text-muted: rgba(0, 0, 0, 0.35);
+  --tag-border: #{rgba($color-primary, 0.25)};
+  --tag-bg: #{rgba($color-primary, 0.1)};
+  --arrow-color: rgba(0, 0, 0, 0.2);
+  --glass-bg: rgba(0, 0, 0, 0.03);
+  --glass-border: rgba(0, 0, 0, 0.08);
+  --glass-bg-hover: #{rgba($color-primary, 0.06)};
+  --glass-border-hover: #{rgba($color-primary, 0.25)};
 
-  [data-theme='dark'] & {
+  &.dark {
     --primary-color: #{$color-primary-light};
     --background-color: #{$dark-bg};
+    --text-primary: #{$dark-text};
+    --text-secondary: rgba(255, 255, 255, 0.55);
+    --text-muted: rgba(255, 255, 255, 0.35);
+    --tag-border: #{rgba($color-primary-light, 0.15)};
+    --tag-bg: #{rgba($color-primary-light, 0.08)};
+    --arrow-color: rgba(255, 255, 255, 0.2);
+    --glass-bg: rgba(255, 255, 255, 0.06);
+    --glass-border: rgba(255, 255, 255, 0.08);
+    --glass-bg-hover: rgba(96, 165, 250, 0.06);
+    --glass-border-hover: rgba(96, 165, 250, 0.25);
   }
 }
 
 html {
   font-family: sans-serif;
+  background-color: var(--light-background-color);
   a { text-decoration: none; color: inherit; }
 
-  @media (prefers-color-scheme: dark) {
+  &.dark {
     background-color: var(--dark-background-color);
-  }
-  @media (prefers-color-scheme: light) {
-    background-color: var(--light-background-color);
   }
 }
 

@@ -29,23 +29,25 @@ const props = withDefaults(defineProps<{
 
 const el = ref<HTMLElement | null>(null)
 const hasSnapped = ref(false)
-const emit = defineEmits<{ snap: [] }>()
+const emit = defineEmits<{ snap: []; unsnap: [] }>()
 
 let checkInterval = 0
 
 function checkVisibility() {
-  if (hasSnapped.value) return
   const node = el.value?.$el ?? el.value
   const container = props.container
   if (!node?.getBoundingClientRect || !container) return
 
   const rect = node.getBoundingClientRect()
   const cRect = container.getBoundingClientRect()
+  const isVisible = rect.top < cRect.bottom && rect.bottom > cRect.top
 
-  if (rect.top < cRect.bottom && rect.bottom > cRect.top) {
+  if (isVisible && !hasSnapped.value) {
     hasSnapped.value = true
     emit('snap')
-    clearInterval(checkInterval)
+  } else if (!isVisible && hasSnapped.value) {
+    hasSnapped.value = false
+    emit('unsnap')
   }
 }
 
@@ -98,5 +100,6 @@ watch(() => props.container, (c) => { if (c) key.value++ })
   display: flex;
   flex-direction: column;
   align-items: center;
+  transition: all 0.3s ease;
 }
 </style>

@@ -1,4 +1,5 @@
 <template>
+  <canvas class="slide-canvas" ref="canvasRef"></canvas>
   <SlideContent
     :project="project"
     :container="container"
@@ -11,7 +12,14 @@
 <script setup lang="ts">
 import type { PortfolioProject } from '@/data/resume'
 import SlideContent from './SlideContent.vue'
+import { useSlideCanvas } from '@/composables/useSlideCanvas'
 
-defineProps<{ project: PortfolioProject; container: HTMLElement | null; isLast?: boolean
-  animated?: boolean }>()
+const props = defineProps<{
+  project: PortfolioProject
+  container: HTMLElement | null
+  isLast?: boolean
+  animated?: boolean
+}>()
+
+const { canvasRef } = useSlideCanvas(() => props.animated)
 </script>

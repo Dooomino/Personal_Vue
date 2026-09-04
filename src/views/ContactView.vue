@@ -48,9 +48,9 @@ import { contact } from '@/data/resume'
 }
 .center { width: 100%; max-width: 400px; padding: 24px; }
 .card {
-  background: linear-gradient(135deg, rgba(255,255,255,0.06) 0%, rgba(255,255,255,0.02) 100%);
+  background: var(--glass-bg);
   backdrop-filter: blur(16px);
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  border: 1px solid var(--glass-border);
   border-radius: 20px;
   padding: 40px 32px;
   text-align: center;
@@ -58,13 +58,13 @@ import { contact } from '@/data/resume'
 .card-title {
   font-size: 26px;
   font-weight: 700;
-  color: #fff;
+  color: var(--text-primary);
   margin: 0 0 8px;
   letter-spacing: -0.02em;
 }
 .card-subtitle {
   font-size: 14px;
-  color: rgba(255, 255, 255, 0.4);
+  color: var(--text-secondary);
   margin: 0 0 36px;
 }
 .list { display: flex; flex-direction: column; gap: 12px; }
@@ -74,27 +74,27 @@ import { contact } from '@/data/resume'
   gap: 14px;
   padding: 16px 18px;
   border-radius: 14px;
-  background: rgba(255, 255, 255, 0.04);
-  border: 1px solid rgba(255, 255, 255, 0.06);
+  background: var(--glass-bg);
+  border: 1px solid var(--glass-border);
   text-decoration: none;
   transition: all 0.25s ease;
 }
 .item:hover {
-  border-color: rgba(96, 165, 250, 0.25);
-  background: rgba(96, 165, 250, 0.06);
+  border-color: var(--glass-border-hover);
+  background: var(--glass-bg-hover);
   transform: translateX(4px);
 }
 .item-icon {
   font-size: 18px;
-  color: rgba(255,255,255,0.5);
+  color: var(--text-secondary);
   flex-shrink: 0;
   width: 20px;
   text-align: center;
 }
 .gh { width: 20px; height: 20px; }
 .item-body { text-align: left; }
-.item-label { font-size: 11px; color: rgba(255, 255, 255, 0.35); text-transform: uppercase; letter-spacing: 0.05em; }
-.item-value { font-size: 14px; color: #e5e7eb; margin-top: 2px; }
+.item-label { font-size: 11px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em; }
+.item-value { font-size: 14px; color: var(--text-primary); margin-top: 2px; }
 .fade-in { animation: fadeIn 0.6s ease both; }
 @keyframes fadeIn {
   from { opacity: 0; transform: translateY(12px); }

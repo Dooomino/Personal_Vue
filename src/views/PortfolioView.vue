@@ -10,7 +10,7 @@
         :key="p.name"
         class="slide"
       >
-        <SlideReveal :container="container" :variant="slideVariants[i % slideVariants.length]" @snap="onSlideSnap(i)">
+        <SlideReveal :container="container" :variant="slideVariants[i % slideVariants.length]" @snap="onSlideSnap(i)" @unsnap="onSlideUnsnap(i)">
           <component :is="getSlide(p.name)" :project="p" :container="container" :is-last="i === portfolioProjects.length - 1" :animated="snappedSlides[i]" />
         </SlideReveal>
       </div>
@@ -35,6 +35,10 @@ function onSlideSnap(index: number) {
   snappedSlides[index] = true
 }
 
+function onSlideUnsnap(index: number) {
+  snappedSlides[index] = false
+}
+
 function getSlide(name: string) {
   return slides[name]
 }
@@ -53,6 +57,6 @@ function getSlide(name: string) {
   z-index: 2;
 }
 .title-slide { gap: 12px; text-align: center; display: flex; flex-direction: column; justify-content: center; height: 100vh; }
-.page-title { font-size: 32px; font-weight: 700; color: #fff; margin: 0; }
-.page-subtitle { font-size: 14px; color: rgba(255,255,255,0.4); margin: 0; }
+.page-title { font-size: 32px; font-weight: 700; color: var(--text-primary); margin: 0; }
+.page-subtitle { font-size: 14px; color: var(--text-secondary); margin: 0; }
 </style>

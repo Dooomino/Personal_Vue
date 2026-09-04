@@ -55,13 +55,13 @@ import { motion } from 'motion-v'
 .page-title {
   font-size: 32px;
   font-weight: 700;
-  color: #fff;
+  color: var(--text-primary);
   margin: 0 0 12px;
   letter-spacing: -0.02em;
 }
 .page-subtitle {
   font-size: 14px;
-  color: rgba(255, 255, 255, 0.55);
+  color: var(--text-secondary);
   line-height: 1.7;
   margin: 0 0 48px;
   max-width: 600px;
@@ -69,7 +69,7 @@ import { motion } from 'motion-v'
 .section-title {
   font-size: 20px;
   font-weight: 600;
-  color: #fff;
+  color: var(--text-primary);
   margin: 0 0 24px;
 }
 .skills-grid {
@@ -81,8 +81,8 @@ import { motion } from 'motion-v'
   .skills-grid { grid-template-columns: 1fr 1fr; }
 }
 .skill-card {
-  background: linear-gradient(135deg, rgba(255,255,255,0.05) 0%, rgba(255,255,255,0.01) 100%);
-  border: 1px solid rgba(255, 255, 255, 0.06);
+  background: var(--glass-bg);
+  border: 1px solid var(--glass-border);
   border-radius: 14px;
   padding: 18px;
   transition: border-color 0.3s;
@@ -90,7 +90,7 @@ import { motion } from 'motion-v'
 .skill-category {
   font-size: 12px;
   font-weight: 600;
-  color: #60a5fa;
+  color: var(--primary-color);
   margin: 0 0 12px;
   text-transform: uppercase;
   letter-spacing: 0.04em;

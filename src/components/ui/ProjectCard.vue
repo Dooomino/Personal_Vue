@@ -24,27 +24,27 @@ defineProps<{ project: PortfolioProject; index: number }>()
 
 <style scoped>
 .card {
-  background: linear-gradient(135deg, rgba(255,255,255,0.06) 0%, rgba(255,255,255,0.02) 100%);
+  background: var(--glass-bg);
   backdrop-filter: blur(12px);
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  border: 1px solid var(--glass-border);
   border-radius: 16px;
   padding: 28px;
   transition: border-color 0.3s, box-shadow 0.3s;
 }
 .card:hover {
-  border-color: rgba(96, 165, 250, 0.3);
+  border-color: var(--glass-border-hover);
   box-shadow: 0 12px 40px rgba(0, 0, 0, 0.3);
 }
 .card-title {
   font-size: 17px;
   font-weight: 600;
-  color: #f0f0f0;
+  color: var(--text-primary);
   margin: 0 0 10px;
   letter-spacing: -0.01em;
 }
 .card-desc {
   font-size: 13.5px;
-  color: rgba(255, 255, 255, 0.55);
+  color: var(--text-secondary);
   margin: 0 0 16px;
   line-height: 1.65;
 }
@@ -58,9 +58,9 @@ defineProps<{ project: PortfolioProject; index: number }>()
   font-size: 11px;
   padding: 3px 9px;
   border-radius: 999px;
-  color: #60a5fa;
-  background: rgba(96, 165, 250, 0.08);
-  border: 1px solid rgba(96, 165, 250, 0.15);
+  color: var(--primary-color);
+  background: var(--tag-bg);
+  border: 1px solid var(--tag-border);
 }
 .links {
   display: flex;
@@ -68,7 +68,7 @@ defineProps<{ project: PortfolioProject; index: number }>()
 }
 .card-link {
   font-size: 13px;
-  color: #60a5fa;
+  color: var(--primary-color);
   text-decoration: none;
   display: inline-flex;
   align-items: center;

@@ -57,13 +57,13 @@ import SkillBadge from '@/components/ui/SkillBadge.vue'
 .page-title {
   font-size: 32px;
   font-weight: 700;
-  color: #fff;
+  color: var(--text-primary);
   margin: 0 0 12px;
   letter-spacing: -0.02em;
 }
 .page-subtitle {
   font-size: 14px;
-  color: rgba(255, 255, 255, 0.45);
+  color: var(--text-secondary);
   margin: 0;
   line-height: 1.7;
   max-width: 600px;
@@ -79,12 +79,12 @@ import SkillBadge from '@/components/ui/SkillBadge.vue'
 .section-title {
   font-size: 20px;
   font-weight: 600;
-  color: #fff;
+  color: var(--text-primary);
   margin: 0;
 }
 .section-period {
   font-size: 13px;
-  color: rgba(255, 255, 255, 0.35);
+  color: var(--text-muted);
   margin-left: auto;
 }
 .badge {
@@ -93,15 +93,15 @@ import SkillBadge from '@/components/ui/SkillBadge.vue'
   border-radius: 999px;
 }
 .badge--blue {
-  color: #60a5fa;
-  background: rgba(96, 165, 250, 0.1);
-  border: 1px solid rgba(96, 165, 250, 0.2);
+  color: var(--primary-color);
+  background: var(--tag-bg);
+  border: 1px solid var(--tag-border);
 }
 .cards { display: flex; flex-direction: column; gap: 20px; }
 .edu-card {
-  background: linear-gradient(135deg, rgba(255,255,255,0.05) 0%, rgba(255,255,255,0.01) 100%);
+  background: var(--glass-bg);
   backdrop-filter: blur(12px);
-  border: 1px solid rgba(255, 255, 255, 0.07);
+  border: 1px solid var(--glass-border);
   border-radius: 16px;
   padding: 28px;
 }
@@ -114,13 +114,13 @@ import SkillBadge from '@/components/ui/SkillBadge.vue'
 .edu-school {
   font-size: 17px;
   font-weight: 600;
-  color: #f0f0f0;
+  color: var(--text-primary);
   margin: 0;
 }
-.edu-period { font-size: 13px; color: rgba(255, 255, 255, 0.35); }
+.edu-period { font-size: 13px; color: var(--text-muted); }
 .edu-degree {
   font-size: 13.5px;
-  color: rgba(255, 255, 255, 0.55);
+  color: var(--text-secondary);
   margin: 0 0 16px;
 }
 .tags { display: flex; flex-wrap: wrap; gap: 8px; }

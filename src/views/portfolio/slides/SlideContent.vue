@@ -46,23 +46,18 @@ const arrowPath = ref<SVGPathElement | null>(null)
 
 let ctx: gsap.Context | null = null
 
-// --- 主题色配置 ---
-const themeColors = {
-  dark: {
-    name: '#f0f0f0',
-    desc: 'rgba(255, 255, 255, 0.55)',
-    tagBorder: 'rgba(96, 165, 250, 0.15)',
-    tagBg: 'rgba(96, 165, 250, 0.08)',
-    arrow: 'rgba(255, 255, 255, 0.2)',
-  },
-  light: {
-    name: '#1a1a2e',
-    desc: 'rgba(0, 0, 0, 0.55)',
-    tagBorder: 'rgba(96, 165, 250, 0.25)',
-    tagBg: 'rgba(96, 165, 250, 0.1)',
-    arrow: 'rgba(0, 0, 0, 0.2)',
-  },
-} as const
+// --- 从 CSS 变量读取主题色 ---
+const readThemeColors = () => {
+  const cs = getComputedStyle(document.documentElement)
+  const v = (name: string) => cs.getPropertyValue(name).trim()
+  return {
+    name: v('--text-primary'),
+    desc: v('--text-secondary'),
+    tagBorder: v('--tag-border'),
+    tagBg: v('--tag-bg'),
+    arrow: v('--arrow-color'),
+  }
+}
 
 // --- 箭头绘制动画 ---
 onMounted(() => {
@@ -93,9 +88,8 @@ onMounted(() => {
 // --- 主题切换：GSAP 渐变过渡 ---
 watch(
   () => themeStore.isDarkMode,
-  (isDark) => {
-    const mode = isDark ? 'dark' : 'light'
-    const colors = themeColors[mode]
+  () => {
+    const colors = readThemeColors()
 
     const targets: gsap.TweenTarget[] = []
     const colorMap = new Map<Element, Record<string, string>>()
@@ -150,14 +144,14 @@ onBeforeUnmount(() => ctx?.revert())
 .project-name {
   font-size: 24px;
   font-weight: 700;
-  color: #f0f0f0;
+  color: var(--text-primary);
   margin: 0 0 12px;
   letter-spacing: -0.01em;
   text-align: center;
 }
 .project-desc {
   font-size: 15px;
-  color: rgba(255, 255, 255, 0.55);
+  color: var(--text-secondary);
   margin: 0 0 20px;
   line-height: 1.7;
   text-align: center;
@@ -173,9 +167,9 @@ onBeforeUnmount(() => ctx?.revert())
   font-size: 12px;
   padding: 4px 12px;
   border-radius: 999px;
-  color: #60a5fa;
-  background: rgba(96, 165, 250, 0.08);
-  border: 1px solid rgba(96, 165, 250, 0.15);
+  color: var(--primary-color);
+  background: var(--tag-bg);
+  border: 1px solid var(--tag-border);
 }
 .links {
   display: flex;
@@ -184,7 +178,7 @@ onBeforeUnmount(() => ctx?.revert())
 }
 .link {
   font-size: 14px;
-  color: #60a5fa;
+  color: var(--primary-color);
   text-decoration: none;
   transition: color 0.2s;
 }
@@ -212,3 +206,4 @@ onBeforeUnmount(() => ctx?.revert())
   /* background: blue; */
 }
 </style>
+<!-- ponytail: keep hardcoded hover, upgrade path: --primary-color-light var -->

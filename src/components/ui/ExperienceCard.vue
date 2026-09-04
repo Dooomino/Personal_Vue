@@ -22,9 +22,9 @@ defineProps<{ project: WorkProject; index: number }>()
 
 <style scoped>
 .card {
-  background: linear-gradient(135deg, rgba(255,255,255,0.05) 0%, rgba(255,255,255,0.01) 100%);
+  background: var(--glass-bg);
   backdrop-filter: blur(12px);
-  border: 1px solid rgba(255, 255, 255, 0.07);
+  border: 1px solid var(--glass-border);
   border-radius: 16px;
   padding: 28px;
   animation: cardIn 0.5s ease both;
@@ -38,12 +38,12 @@ defineProps<{ project: WorkProject; index: number }>()
 .card-title {
   font-size: 17px;
   font-weight: 600;
-  color: #f0f0f0;
+  color: var(--text-primary);
   margin: 0 0 4px;
 }
 .card-period {
   font-size: 13px;
-  color: rgba(255, 255, 255, 0.35);
+  color: var(--text-muted);
 }
 .desc-list {
   list-style: none;
@@ -52,7 +52,7 @@ defineProps<{ project: WorkProject; index: number }>()
 }
 .desc-item {
   font-size: 13.5px;
-  color: rgba(255, 255, 255, 0.6);
+  color: var(--text-secondary);
   line-height: 1.7;
   padding-left: 18px;
   position: relative;

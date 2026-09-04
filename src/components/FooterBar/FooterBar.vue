@@ -13,16 +13,17 @@ const year = new Date().getFullYear()
   text-align: center;
   padding: 14px;
   font-size: 12px;
-  color: rgba(255, 255, 255, 0.25);
-  border-top: 1px solid rgba(255, 255, 255, 0.03);
-  background-color: rgba(0, 0, 0, 1);
+  color: var(--text-muted);
+  border-top: 1px solid var(--glass-border);
+  background-color: var(--background-color);
   flex-shrink: 0;
   z-index: 1000;
 }
 .footer a {
-  color: rgba(255, 255, 255, 0.25);
+  color: var(--text-muted);
   text-decoration: none;
   transition: color 0.2s;
 }
 .footer a:hover { color: #60a5fa; }
 </style>
+<!-- ponytail: hardcoded hover, upgrade path: var(--primary-color) -->
