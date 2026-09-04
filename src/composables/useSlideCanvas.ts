@@ -35,18 +35,13 @@ export function useSlideCanvas(
     const ctx = canvas.getContext('2d')
     if (!ctx) return
 
+    // ponytail: kill any in-flight animation before starting new one
+    gsap.killTweensOf(canvas)
+
     const width = (canvas.width = canvas.offsetWidth)
     const height = (canvas.height = canvas.offsetHeight)
 
     ctx.clearRect(0, 0, width, height)
-
-    const gradient = ctx.createLinearGradient(width, 0, width, height)
-    gradient.addColorStop(0, 'rgba(255, 255, 255, 0)')
-    gradient.addColorStop(1, 'rgba(255, 255, 255, 0.3)')
-
-    ctx.fillStyle = gradient
-    ctx.fillRect(0, 0, width, height)
-
     gsap.fromTo(canvas,
       { opacity: 0 },
       { opacity: 1, duration: 1, onComplete: resolveAnimation! }
