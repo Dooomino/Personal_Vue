@@ -1,277 +1,344 @@
 <template>
-  <div class="u-h-full u-w-full main">
+  <div
+    class="u-h-full u-w-full main"
+    @pointermove="handlePointerMove"
+    @pointerleave="handlePointerLeave"
+  >
     <canvas ref="canvas" class="u-h-full u-w-full"></canvas>
   </div>
 </template>
+
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted } from 'vue';
-import * as THREE from 'three';
-import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls';
+import { onMounted, onUnmounted, ref } from 'vue'
+import * as THREE from 'three'
 
-const centerOfField = new THREE.Vector3(0, 0, 0);
+/** 网格规模（远小于原先 128×128，作为页面背景足够填满画面） */
+const COLS = 36
+const ROWS = 22
+const CELL = 1.0
+/** 间距收紧，块与块几乎贴合 */
+const BOX_XZ = 0.98
+/** 静息高度（近景下柱体要立得住） */
+const BOX_Y = 2.6
+const COUNT = COLS * ROWS
 
-const canvas = ref<HTMLCanvasElement | null>(null);
-let camera: THREE.PerspectiveCamera | null = null;
-let renderer: THREE.WebGLRenderer | null = null;
-let controls: OrbitControls | null = null;
-let scene: THREE.Scene | null = null;
-let resizeHandler: (() => void) | null = null;
-let meshList: THREE.Mesh[] = [];
-onMounted(() => {
-  if (!canvas.value) {
-    console.error('[MainContainer] Canvas ref is null');
-    return;
+/** 主体上下位移幅度与影响半径（世界单位） */
+const MAX_LIFT = 4.8
+const INFLUENCE = 8
+const BOB_AMPLITUDE = ROWS * CELL * 0.28
+/** 正交视窗相对整网的缩放：越大越“远”，能看到更多柱体 */
+const VIEW_ZOOM = 0.7
+
+const canvas = ref<HTMLCanvasElement | null>(null)
+
+let renderer: THREE.WebGLRenderer | null = null
+let scene: THREE.Scene | null = null
+let camera: THREE.OrthographicCamera | null = null
+let instanced: THREE.InstancedMesh | null = null
+let ground: THREE.Mesh | null = null
+let clock: THREE.Clock | null = null
+let boxMat: THREE.MeshPhongMaterial | null = null
+let depthMat: THREE.MeshDepthMaterial | null = null
+let rafId = 0
+let resizeHandler: (() => void) | null = null
+
+/** 鼠标 NDC → 地面平面（y=0）世界坐标，作为动画中心 */
+const pointerNdc = new THREE.Vector2(0, 0)
+const hasPointer = ref(false)
+const focusTarget = new THREE.Vector3(0, 0, 0)
+const focusSmooth = new THREE.Vector3(0, 0, 0)
+const raycaster = new THREE.Raycaster()
+const groundPlane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0)
+const hitPoint = new THREE.Vector3()
+
+function handlePointerMove(e: PointerEvent) {
+  if (!canvas.value) return
+  const rect = canvas.value.getBoundingClientRect()
+  if (rect.width === 0 || rect.height === 0) return
+  pointerNdc.x = ((e.clientX - rect.left) / rect.width) * 2 - 1
+  pointerNdc.y = -((e.clientY - rect.top) / rect.height) * 2 + 1
+  hasPointer.value = true
+}
+
+function handlePointerLeave() {
+  hasPointer.value = false
+}
+
+/** 每帧只改这些 uniform，高度在 GPU 里算 */
+const uniforms = {
+  uTime: { value: 0 },
+  uFocus: { value: new THREE.Vector3(0, 0, 0) },
+  uMaxLift: { value: MAX_LIFT },
+  uInfluence: { value: INFLUENCE },
+  uBobAmp: { value: BOB_AMPLITUDE },
+  uBoxY: { value: BOX_Y },
+}
+
+/** 颜色材质与深度材质共用同一套高度逻辑，保证阴影对齐 */
+const HEIGHT_PARS = /* glsl */ `
+uniform float uTime;
+uniform vec3 uFocus;
+uniform float uMaxLift;
+uniform float uInfluence;
+uniform float uBobAmp;
+uniform float uBoxY;
+
+float pillarLift(vec2 cell) {
+  vec2 d = cell - uFocus.xz;
+  float dist = length(d);
+  if (dist >= uInfluence) return 0.0;
+
+  float fall = 1.0 - dist / uInfluence;
+  float dome = cos(dist / uInfluence * PI * 0.5);
+  float n =
+    sin(cell.x * 1.7 + uTime * 1.4) * 0.35 +
+    sin(cell.y * 2.3 - uTime * 1.1) * 0.25 +
+    sin((cell.x + cell.y) * 0.9 + uTime * 0.7) * 0.2;
+  float bob = 0.55 + uFocus.y / (uBobAmp * 2.0 + 0.001);
+  return max(dome * uMaxLift * bob + n * fall * 0.6, 0.0);
+}
+`
+
+const HEIGHT_VERTEX = /* glsl */ `
+#ifdef USE_INSTANCING
+  vec2 cellXZ = vec2(instanceMatrix[3].x, instanceMatrix[3].z);
+#else
+  vec2 cellXZ = position.xz;
+#endif
+float liftH = pillarLift(cellXZ);
+transformed.y *= (uBoxY + liftH) / uBoxY;
+`
+
+function patchVertexShader(shader: THREE.WebGLProgramParametersWithUniforms) {
+  shader.uniforms.uTime = uniforms.uTime
+  shader.uniforms.uFocus = uniforms.uFocus
+  shader.uniforms.uMaxLift = uniforms.uMaxLift
+  shader.uniforms.uInfluence = uniforms.uInfluence
+  shader.uniforms.uBobAmp = uniforms.uBobAmp
+  shader.uniforms.uBoxY = uniforms.uBoxY
+  shader.vertexShader = shader.vertexShader
+    .replace('#include <common>', `#include <common>\n${HEIGHT_PARS}`)
+    .replace('#include <begin_vertex>', `#include <begin_vertex>\n${HEIGHT_VERTEX}`)
+}
+
+function fitCamera() {
+  if (!camera || !canvas.value) return
+  const w = canvas.value.clientWidth
+  const h = canvas.value.clientHeight
+  if (w === 0 || h === 0) return
+
+  const aspect = w / h
+  const gridW = COLS * CELL
+  const gridH = ROWS * CELL
+  let viewH: number
+  let viewW: number
+  if (aspect >= gridW / gridH) {
+    viewH = gridH
+    viewW = viewH * aspect
+  } else {
+    viewW = gridW
+    viewH = viewW / aspect
   }
 
-  scene = new THREE.Scene();
+  viewW *= VIEW_ZOOM
+  viewH *= VIEW_ZOOM
 
-  // 创建 5x12 矩阵的立方体（无间隙）
-  const rows = 128;
-  const cols = 128;
-  const boxSize = 1; // 立方体尺寸（作为页面主体）
-  const spacing = boxSize * 1.01; // 间距等于立方体尺寸，实现无缝拼接
-  const startX = -((cols - 1) * spacing) / 2; // 居中起始 X 坐标
-  const startY = -((rows - 1) * spacing) / 2; // 居中起始 Y 坐标
+  camera.left = -viewW / 2
+  camera.right = viewW / 2
+  camera.top = viewH / 2
+  camera.bottom = -viewH / 2
+  camera.updateProjectionMatrix()
+}
 
-  // 计算矩阵的实际尺寸
-  const matrixWidth = (cols - 1) * spacing;
-  const matrixHeight = (rows - 1) * spacing;
-  const matrixSize = Math.max(matrixWidth, matrixHeight);
+function disposeScene() {
+  if (instanced) {
+    instanced.geometry.dispose()
+    scene?.remove(instanced)
+    instanced = null
+  }
+  if (boxMat) {
+    boxMat.dispose()
+    boxMat = null
+  }
+  if (depthMat) {
+    depthMat.dispose()
+    depthMat = null
+  }
+  if (ground) {
+    ground.geometry.dispose()
+    ;(ground.material as THREE.Material).dispose()
+    scene?.remove(ground)
+    ground = null
+  }
+  if (renderer) {
+    renderer.dispose()
+    renderer.forceContextLoss()
+    renderer = null
+  }
+  scene = null
+  camera = null
+  clock = null
+}
 
-  // 根据矩阵大小计算缩放比例（以 10 为基准尺寸）
-  const scaleRatio = matrixSize / 10;
-  const boxGeo = new THREE.BoxGeometry(boxSize, boxSize, boxSize*10);
-  const boxMat = new THREE.MeshPhongMaterial({
+onMounted(() => {
+  if (!canvas.value) return
+
+  scene = new THREE.Scene()
+
+  // 正交斜视：位置后移 + 更大视窗，画面更“远”
+  camera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0.1, 260)
+  camera.position.set(0, 62, 70)
+  camera.lookAt(0, 2.0, 0)
+  fitCamera()
+
+  // 盒底贴 y=0，高度只在 shader 里沿 +Y 缩放
+  const boxGeo = new THREE.BoxGeometry(BOX_XZ, BOX_Y, BOX_XZ)
+  boxGeo.translate(0, BOX_Y * 0.5, 0)
+
+  boxMat = new THREE.MeshPhongMaterial({
     color: 0xffffff,
-    specular: 0x111111,
-    shininess: 10,
-    flatShading: false, // 关闭平面着色，使用平滑着色减少摩尔纹
-    vertexColors: true
+    specular: 0x222222,
+    shininess: 18,
+    flatShading: false,
   })
-  for (let row = 0; row < rows; row++) {
-    for (let col = 0; col < cols; col++) {
-      const boxMesh = new THREE.Mesh(
-        boxGeo,
-        boxMat
-      );
+  boxMat.onBeforeCompile = patchVertexShader
 
-      // 计算位置
-      boxMesh.position.x = startX + col * spacing;
-      boxMesh.position.y = startY + row * spacing;
-      boxMesh.position.z = 0;
-      boxMesh.castShadow = true;
-      boxMesh.receiveShadow = true;
+  // 阴影 pass 必须用同一套顶点位移，否则影子高度对不上柱体
+  depthMat = new THREE.MeshDepthMaterial({
+    depthPacking: THREE.RGBADepthPacking,
+  })
+  depthMat.onBeforeCompile = patchVertexShader
 
-      meshList = [...meshList, boxMesh];
+  instanced = new THREE.InstancedMesh(boxGeo, boxMat, COUNT)
+  instanced.castShadow = true
+  instanced.receiveShadow = true
+  instanced.customDepthMaterial = depthMat
 
-      scene.add(boxMesh);
+  const dummy = new THREE.Object3D()
+  const startX = -((COLS - 1) * CELL) / 2
+  const startZ = -((ROWS - 1) * CELL) / 2
+  for (let row = 0; row < ROWS; row++) {
+    for (let col = 0; col < COLS; col++) {
+      const i = row * COLS + col
+      dummy.position.set(startX + col * CELL, 0, startZ + row * CELL)
+      dummy.scale.set(1, 1, 1)
+      dummy.updateMatrix()
+      instanced.setMatrixAt(i, dummy.matrix)
     }
   }
+  // 实例矩阵只写一次；之后不再每帧上传
+  instanced.instanceMatrix.needsUpdate = true
+  scene.add(instanced)
 
-  const light = new THREE.DirectionalLight(0x999999, 2000);
-  light.lookAt(new THREE.Vector3(0, 0, 0))
-  light.position.set(-10, 5, 10);
-  scene.add(light);
+  // 阴影接收面：铺在网格下方，填满画面
+  const groundSize = Math.max(COLS, ROWS) * CELL * 2
+  const groundGeo = new THREE.PlaneGeometry(groundSize, groundSize)
+  const groundMat = new THREE.MeshPhongMaterial({
+    color: 0x1a2a22,
+    specular: 0x000000,
+    shininess: 0,
+  })
+  ground = new THREE.Mesh(groundGeo, groundMat)
+  ground.rotation.x = -Math.PI / 2
+  ground.position.y = 0
+  ground.receiveShadow = true
+  scene.add(ground)
 
-  let moveDirection = 1; // 当前移动方向
-  let targetDirection = 1; // 目标移动方向
-  const moveSpeed = 0.1 * scaleRatio; // 根据缩放比例调整移动速度
-  const boundary = 8 * scaleRatio; // 移动边界范围根据矩阵大小缩放
-  const directionChangeSpeed = 0.01; // 方向变化速度（越小越平滑）
-  const maxDist = 3.0 * scaleRatio; // 最大影响距离根据矩阵大小缩放
-  const maxOffset = 1.4 * scaleRatio; // 最大 Z 轴偏移量根据矩阵大小缩放
+  // 主光：偏上方侧打，配合斜视近景拉出柱体阴影
+  const keyLight = new THREE.DirectionalLight(0xffffff, 1.4)
+  keyLight.position.set(10, 22, 14)
+  keyLight.target.position.set(0, 0, 0)
+  keyLight.castShadow = true
+  keyLight.shadow.mapSize.set(2048, 2048)
+  keyLight.shadow.camera.near = 4
+  keyLight.shadow.camera.far = 90
+  const s = 14
+  keyLight.shadow.camera.left = -s
+  keyLight.shadow.camera.right = s
+  keyLight.shadow.camera.top = s
+  keyLight.shadow.camera.bottom = -s
+  keyLight.shadow.camera.updateProjectionMatrix()
+  keyLight.shadow.bias = -0.0002
+  keyLight.shadow.normalBias = 0.04
+  keyLight.shadow.radius = 1.5
+  scene.add(keyLight)
+  scene.add(keyLight.target)
 
-  // Y 轴抖动相关变量
-  let yJitterTime = 0; // 抖动时间累积
-  const yJitterAmplitude = 0.2 * scaleRatio; // Y 轴抖动幅度
-  const yJitterFrequency = 4.0; // 抖动频率（更频繁）
-
-  // const targetObj = new THREE.Mesh(
-  //   new THREE.SphereGeometry(maxDist * 0.9, 32, 32), // 球体大小根据矩阵缩放
-  //   // new THREE.IcosahedronGeometry(maxDist * 0.9, 1),
-  //   // new THREE.MeshBasicMaterial({
-  //   //   color: 0xffffff,
-  //   //   transparent: false,
-  //   //   opacity: 0
-  //   // })
-  //   new THREE.MeshPhongMaterial({
-  //     color: 0xffffff,
-  //     // specular: 0x111111,
-  //     shininess: 1,
-  //     transparent: true,
-  //     opacity: 0,
-  //     flatShading: true,
-  //     vertexColors: true
-  //   })
-  // );
-
-  const targetObj = new THREE.Object3D();
-  targetObj.position.set(0, 0, 0.5 * scaleRatio); // 初始位置设为中心
-  scene.add(targetObj);
-
-  // scene.add(new THREE.AxesHelper(10))
-
-  // 使用透视相机
-  camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
-  // 相机位置根据矩阵大小等比缩放，确保视野覆盖整个矩阵
-  // const cameraDistance = matrixSize * 0.5; // 拉近相机距离（从 0.64 改为 0.5）
-  const cameraDistance = 1.5; // 拉近相机距离（从 0.64 改为 0.5）
-  camera.position.set(0, 1.5, 90*cameraDistance );
-  camera.lookAt(scene.position);
+  const fill = new THREE.AmbientLight(0xb8cfc4, 0.45)
+  scene.add(fill)
 
   renderer = new THREE.WebGLRenderer({
     canvas: canvas.value,
-    alpha: false, // 启用透明背景
-    antialias: true, // 启用抗锯齿，减少摩尔纹
-    powerPreference: 'high-performance' // 优先使用高性能模式
-  });
-  renderer.setClearColor(0x000000, 0); // 设置完全透明（alpha = 0）
-  renderer.setSize(canvas.value.clientWidth, canvas.value.clientHeight);
-  renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2)); // 限制像素比，避免性能问题
-  //mipmap
-  renderer.shadowMap.enabled = true;
-  renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    alpha: true,
+    antialias: true,
+    powerPreference: 'high-performance',
+  })
+  renderer.setClearColor(0x000000, 0)
+  renderer.setSize(canvas.value.clientWidth, canvas.value.clientHeight, false)
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.5))
+  renderer.shadowMap.enabled = true
+  renderer.shadowMap.type = THREE.PCFSoftShadowMap
 
-  controls = new OrbitControls(camera, renderer.domElement);
-  controls.enableDamping = true;
-  // gui = new GUI();
-  controls.on
-  // 动画循环
+  clock = new THREE.Clock()
+
   function animate() {
-    requestAnimationFrame(animate);
-    if (controls && renderer && scene && camera) {
-      // 实现左右反复移动
-      centerOfField.copy(targetObj.position);
+    rafId = requestAnimationFrame(animate)
+    if (!renderer || !scene || !camera || !clock) return
 
-      // 检查是否到达边界，如果到达则改变目标方向
-      if (centerOfField.x > boundary) {
-        targetDirection = -1; // 到达右边界，目标方向改为向左
-      } else if (centerOfField.x < -boundary) {
-        targetDirection = 1; // 到达左边界，目标方向改为向右
+    const dt = Math.min(clock.getDelta(), 0.05)
+    const t = clock.getElapsedTime()
+
+    // 平面坐标：有指针时用射线投到 y=0；离开后回到缓慢漂移
+    if (hasPointer.value) {
+      raycaster.setFromCamera(pointerNdc, camera)
+      if (raycaster.ray.intersectPlane(groundPlane, hitPoint)) {
+        focusTarget.x = hitPoint.x
+        focusTarget.z = hitPoint.z
       }
-
-      // 平滑过渡方向（使用线性插值）
-      moveDirection += (targetDirection - moveDirection) * directionChangeSpeed;
-
-      centerOfField.x += moveSpeed * moveDirection;
-
-      // Y 轴随机抖动（在边界处衰减为 0）
-      yJitterTime += 0.016; // 假设 60fps
-
-      // 计算边界衰减因子（靠近边界时抖动减弱）
-      const distToBoundary = Math.min(
-        Math.abs(centerOfField.x - boundary),
-        Math.abs(centerOfField.x + boundary)
-      );
-      const boundaryFadeDistance = 1.0 * scaleRatio; // 边界衰减距离
-      const boundaryFactor = Math.min(distToBoundary / boundaryFadeDistance, 1);
-
-      // 使用多个正弦波叠加创建更自然的抖动
-      const jitterY = yJitterAmplitude * boundaryFactor * (
-        Math.sin(yJitterTime * yJitterFrequency) * 0.5 +
-        Math.sin(yJitterTime * yJitterFrequency * 1.7) * 0.3 +
-        Math.sin(yJitterTime * yJitterFrequency * 0.6) * 0.2
-      );
-
-      centerOfField.y = jitterY;
-
-      targetObj.position.copy(centerOfField);
-
-      // 根据移动方向计算滚动速度
-      const rollSpeed = 0.5; // 滚动速度系数
-      targetObj.rotation.x += moveSpeed * rollSpeed; // 沿 X 轴移动时绕 X 轴滚动
-      targetObj.rotation.z -= moveSpeed * rollSpeed; // 沿 X 轴移动时绕 Z 轴反向滚动（模拟向前滚）
-
-      // 如果有 Y 轴速度，也可以添加对应的旋转
-      // targetObj.rotation.y += yJitterSpeed * rollSpeed;
-
-      for (const mesh of meshList) {
-        // 计算 mesh 与中心点的距离
-        const dist = mesh.position.distanceTo(centerOfField);
-
-        // 根据距离计算目标 Z 轴位置（距离越近，Z 值越小，形成凹陷效果）
-        // 使用高斯函数或正弦函数创建平滑的波浪效果
-
-        let targetZ = 0;
-        if (dist < maxDist) {
-          // 使用余弦函数创建平滑的凹陷效果
-          targetZ = maxOffset * Math.cos((dist / maxDist) * Math.PI / 2);
-
-          // 添加连贯的随机噪声（基于位置和时间的噪声）
-          const noiseTime = yJitterTime * 0.8; // 加快噪声演变速度
-          const meshId = mesh.position.x * 127 + mesh.position.y * 73; // 使用质数增加随机性
-
-          // 基础噪声：使用更多频率和更高权重的正弦波叠加
-          const baseNoise = (
-            Math.sin(meshId * 0.15 + noiseTime) * 0.6 +
-            Math.sin(meshId * 0.37 + noiseTime * 1.5) * 0.45 +
-            Math.sin(meshId * 0.09 + noiseTime * 0.9) * 0.35 +
-            Math.sin(meshId * 0.51 + noiseTime * 2.1) * 0.25 +
-            Math.sin(meshId * 0.23 + noiseTime * 0.6) * 0.2
-          );
-
-          // 添加额外的随机高度变化（每个方块独立的随机因子）
-          // 使用 hash 函数生成伪随机数，但保持连贯性
-          const randomSeed = Math.abs(Math.sin(meshId * 12.9898 + noiseTime * 0.3) * 43758.5453) % 1;
-          const heightVariation = (randomSeed - 0.5) * 2; // 范围 -1 到 1
-
-          // 合并基础噪声和高度变化
-          const combinedNoise = baseNoise * 0.7 + heightVariation * 0.3;
-
-          // 噪声幅度随距离衰减（进一步增大幅度）
-          const noiseAmplitude = 0.6 * scaleRatio * (1 - dist / maxDist);
-          targetZ += combinedNoise * noiseAmplitude;
-        }
-
-        // 平滑过渡到目标 Z 位置（增大平滑系数）
-        mesh.position.z += (targetZ - mesh.position.z) * 0.05;
-      }
-      // console.log(targetObj.position.x)
-      controls.update();
-      renderer.render(scene, camera);
+    } else {
+      focusTarget.x = Math.sin(t * 0.35) * (COLS * CELL * 0.22)
+      focusTarget.z = Math.cos(t * 0.27) * (ROWS * CELL * 0.18)
     }
+    // 高度方向仍保留独立起伏，不跟鼠标
+    focusTarget.y = Math.sin(t * 0.9) * BOB_AMPLITUDE
+
+    // 指针移动时平滑跟随，避免焦点生硬跳变
+    const k = 1 - Math.exp(-10 * dt)
+    focusSmooth.lerp(focusTarget, k)
+
+    // CPU 只更新焦点；柱体高度 / 噪声在 vertex shader
+    uniforms.uTime.value = t
+    uniforms.uFocus.value.copy(focusSmooth)
+
+    renderer.render(scene, camera)
   }
-  animate();
+  animate()
 
-  // 监听窗口大小变化
   resizeHandler = () => {
-    if (camera && renderer && canvas.value) {
-      camera.aspect = canvas.value.clientWidth / canvas.value.clientHeight;
-      camera.updateProjectionMatrix();
-      renderer.setSize(canvas.value.clientWidth, canvas.value.clientHeight);
-    }
-  };
-  window.addEventListener('resize', resizeHandler);
-});
+    if (!camera || !renderer || !canvas.value) return
+    fitCamera()
+    renderer.setSize(canvas.value.clientWidth, canvas.value.clientHeight, false)
+  }
+  window.addEventListener('resize', resizeHandler)
+})
 
 onUnmounted(() => {
-  // 清理事件监听器
+  cancelAnimationFrame(rafId)
+  rafId = 0
   if (resizeHandler) {
-    window.removeEventListener('resize', resizeHandler);
+    window.removeEventListener('resize', resizeHandler)
+    resizeHandler = null
   }
-
-  // 清理 Three.js 资源
-  if (controls) controls.dispose();
-  if (renderer) renderer.dispose();
-  if (scene) {
-    scene.traverse((object) => {
-      const mesh = object as THREE.Mesh;
-      if (mesh.geometry) {
-        mesh.geometry.dispose();
-      }
-      if (mesh.material) {
-        const materials = Array.isArray(mesh.material) ? mesh.material : [mesh.material];
-        materials.forEach((material: THREE.Material) => material.dispose());
-      }
-    });
-  }
-});
+  disposeScene()
+})
 </script>
 
 <style scoped>
 .main {
   background: linear-gradient(to bottom, #33554488 0%, rgba(255, 255, 255, 0) 100%);
   animation: fadeIn 0.6s ease-out;
+  cursor: crosshair;
+  touch-action: none;
 }
 
 @keyframes fadeIn {
