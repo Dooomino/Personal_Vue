@@ -32,13 +32,16 @@ watch(() => props.animated, (v) => {
   threeReady = true
   animationDone.then(() => {
     const { renderer, scene, camera } = createThreeScene(canvasRef.value!)
+    debugger
     camera.position.z = 5
     const box = new THREE.Mesh(
       new THREE.BoxGeometry(1, 1, 1),
       new THREE.MeshBasicMaterial({ color: 0x00ff00 })
     )
+    camera.lookAt(box.position)
     scene.add(box)
     renderer.render(scene, camera)
+
   })
 })
 </script>

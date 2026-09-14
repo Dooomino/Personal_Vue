@@ -70,5 +70,5 @@ export function useSlideCanvas(
     }
   })
 
-  return { canvasRef, get animationDone() { return animationDone } }
+  return { canvasRef, get animationDone() { console.log("animationDone",canvasRef.value); return animationDone } }
 }

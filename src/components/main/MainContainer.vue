@@ -26,9 +26,9 @@ onMounted(() => {
   scene = new THREE.Scene();
 
   // 创建 5x12 矩阵的立方体（无间隙）
-  const rows = 16;
-  const cols = 32;
-  const boxSize = 0.01; // 立方体尺寸（作为页面主体）
+  const rows = 128;
+  const cols = 128;
+  const boxSize = 1; // 立方体尺寸（作为页面主体）
   const spacing = boxSize * 1.01; // 间距等于立方体尺寸，实现无缝拼接
   const startX = -((cols - 1) * spacing) / 2; // 居中起始 X 坐标
   const startY = -((rows - 1) * spacing) / 2; // 居中起始 Y 坐标
@@ -40,7 +40,7 @@ onMounted(() => {
 
   // 根据矩阵大小计算缩放比例（以 10 为基准尺寸）
   const scaleRatio = matrixSize / 10;
-  const boxGeo = new THREE.BoxGeometry(boxSize, boxSize, boxSize);
+  const boxGeo = new THREE.BoxGeometry(boxSize, boxSize, boxSize*10);
   const boxMat = new THREE.MeshPhongMaterial({
     color: 0xffffff,
     specular: 0x111111,
@@ -70,7 +70,7 @@ onMounted(() => {
 
   const light = new THREE.DirectionalLight(0x999999, 2000);
   light.lookAt(new THREE.Vector3(0, 0, 0))
-  light.position.set(-1, 0, 10);
+  light.position.set(-10, 5, 10);
   scene.add(light);
 
   let moveDirection = 1; // 当前移动方向
@@ -114,13 +114,14 @@ onMounted(() => {
   // 使用透视相机
   camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
   // 相机位置根据矩阵大小等比缩放，确保视野覆盖整个矩阵
-  const cameraDistance = matrixSize * 0.5; // 拉近相机距离（从 0.64 改为 0.5）
-  camera.position.set(0, -cameraDistance, cameraDistance );
+  // const cameraDistance = matrixSize * 0.5; // 拉近相机距离（从 0.64 改为 0.5）
+  const cameraDistance = 1.5; // 拉近相机距离（从 0.64 改为 0.5）
+  camera.position.set(0, 1.5, 90*cameraDistance );
   camera.lookAt(scene.position);
 
   renderer = new THREE.WebGLRenderer({
     canvas: canvas.value,
-    alpha: true, // 启用透明背景
+    alpha: false, // 启用透明背景
     antialias: true, // 启用抗锯齿，减少摩尔纹
     powerPreference: 'high-performance' // 优先使用高性能模式
   });
@@ -134,7 +135,7 @@ onMounted(() => {
   controls = new OrbitControls(camera, renderer.domElement);
   controls.enableDamping = true;
   // gui = new GUI();
-
+  controls.on
   // 动画循环
   function animate() {
     requestAnimationFrame(animate);
