@@ -51,8 +51,6 @@ import * as THREE from 'three'
 
 /** 视觉规范：月相轨道 — 外圆/轨道描边 + 亮面金色填充，无光照 / 无 PBR */
 const COLOR_GOLD = 0xffd700
-/** 晨昏线：比纯暗金略亮，1px 线在深空底上才分得清 */
-const COLOR_DARK_GOLD = 0xc9a227
 const COLOR_BG = 0x1a1a2e
 
 const ORBIT_RADIUS = 2.35
@@ -100,35 +98,6 @@ function terminatorSemiX(R: number, phase: number): number {
   return (isWaxing ? 1 : -1) * R * Math.cos(p * Math.PI * 2)
 }
 
-/** 晨昏线：从北极到南极的半椭圆，x = a·√(1-(y/R)²) */
-function terminatorLinePoints(R: number, phase: number, segments = 64): THREE.Vector3[] {
-  const a = terminatorSemiX(R, phase)
-  const pts: THREE.Vector3[] = []
-  for (let i = 0; i <= segments; i++) {
-    const y = R - (2 * R * i) / segments
-    const k = Math.sqrt(Math.max(0, 1 - (y / R) * (y / R)))
-    pts.push(new THREE.Vector3(a * k, y, 0))
-  }
-  return pts
-}
-
-/**
- * 外圆 + 晨昏线（由相位推导）。
- * 上下弦时晨昏线退化为直径。
- */
-function moonPhaseCurves(R: number, phase: number): THREE.Vector3[][] {
-  const p = normalizePhase(phase)
-  const disk = circlePoints(R, 64)
-
-  if (p < 0.015 || p > 0.985) {
-    return [disk, circlePoints(R * 0.92, 64)]
-  }
-  if (Math.abs(p - 0.5) < 0.015) {
-    return [disk]
-  }
-  return [disk, terminatorLinePoints(R, p)]
-}
-
 function ensureCCW(pts: THREE.Vector2[]): THREE.Vector2[] {
   let area = 0
   for (let i = 0; i < pts.length; i++) {
@@ -168,12 +137,20 @@ function shapeFromRing(outer: THREE.Vector2[], holes: THREE.Vector2[][] = []): T
 
 /**
  * 亮面填充：统一单轮廓 —— 晨昏线（上→下）+ 亮侧外弧（下→上）。
- * 不用 hole（与外圆在两极相交会导致 ShapeGeometry 三角化失败）。
- * 盈月亮在右，亏月亮在左；a 的符号已区分弦月/凸月。
+ * 不用与外圆相交的 hole（两极重合会导致 ShapeGeometry 三角化失败）。
+ * 新月/月食：外圈环形填色；满月：整圆。
+ * 盈月亮在右，亏月亮在左。
  */
 function moonPhaseShape(R: number, phase: number, segments = 64): THREE.Shape | null {
   const p = normalizePhase(phase)
-  if (p < 0.012 || p > 0.988) return null
+
+  // 新月 / 月食：外圈细环（内圆严格在内，hole 不与外圆相交）
+  if (p < 0.012 || p > 0.988) {
+    const outer = sampleCircleArc(R, 0, Math.PI * 2, segments)
+    const inner = sampleCircleArc(R * 0.94, 0, Math.PI * 2, segments)
+    return shapeFromRing(outer, [inner])
+  }
+
   if (Math.abs(p - 0.5) < 0.012) {
     return shapeFromRing(sampleCircleArc(R, 0, Math.PI * 2, segments))
   }
@@ -190,7 +167,6 @@ function moonPhaseShape(R: number, phase: number, segments = 64): THREE.Shape | 
     limbLit.push(new THREE.Vector2(litDir * R * k, y))
   }
 
-  // a>0 盈弦：细牙；a=0 上下弦：半圆；a<0 盈凸：大于半圆
   return shapeFromRing([...term, ...limbLit.slice().reverse()])
 }
 
@@ -253,26 +229,13 @@ function buildScene() {
     moon.position.set(pos.x, pos.y, 0)
     const phase = MOON_PHASES[i]
 
-    // 亮面填充（底层）
+    // 亮面填充 + 外圆描边（不画晨昏线）
     const shape = moonPhaseShape(ICON_RADIUS, phase)
     if (shape) {
       const fill = fillMesh(shape, 0)
       if (fill) moon.add(fill)
     }
-
-    // 外圆 + 晨昏线描边（上层）
-    const curves = moonPhaseCurves(ICON_RADIUS, phase)
-    curves.forEach((pts, ci) => {
-      if (pts.length < 2) return
-      moon.add(
-        lineLoop(
-          pts,
-          ci === 0 ? COLOR_GOLD : COLOR_DARK_GOLD,
-          ci === 0 ? 0.95 : 1,
-          ci + 1,
-        ),
-      )
-    })
+    moon.add(lineLoop(circlePoints(ICON_RADIUS, 64), COLOR_GOLD, 0.95, 1))
 
     root.add(moon)
     moonGroups.push(moon)
