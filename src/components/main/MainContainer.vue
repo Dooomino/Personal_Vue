@@ -3,6 +3,9 @@
     class="u-h-full u-w-full main"
     @pointermove="handlePointerMove"
     @pointerleave="handlePointerLeave"
+    @pointerdown="handlePointerDown"
+    @pointerup="handlePointerUp"
+    @pointercancel="handlePointerUp"
   >
     <canvas ref="canvas" class="u-h-full u-w-full"></canvas>
   </div>
@@ -28,6 +31,11 @@ const INFLUENCE = 8
 const BOB_AMPLITUDE = ROWS * CELL * 0.28
 /** 正交视窗相对整网的缩放：越大越“远”，能看到更多柱体 */
 const VIEW_ZOOM = 0.7
+/** 点击下沉：按住左键持续施加，松开后衰减 */
+const MAX_SINK = MAX_LIFT * 0.95
+const SINK_RADIUS = 5.5
+const SINK_RELEASE = 0.45
+const SINK_ATTACK = 0.12
 
 const canvas = ref<HTMLCanvasElement | null>(null)
 
@@ -51,18 +59,60 @@ const raycaster = new THREE.Raycaster()
 const groundPlane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0)
 const hitPoint = new THREE.Vector3()
 
-function handlePointerMove(e: PointerEvent) {
-  if (!canvas.value) return
+function projectPointer(e: PointerEvent) {
+  if (!canvas.value) return false
   const rect = canvas.value.getBoundingClientRect()
-  if (rect.width === 0 || rect.height === 0) return
+  if (rect.width === 0 || rect.height === 0) return false
   pointerNdc.x = ((e.clientX - rect.left) / rect.width) * 2 - 1
   pointerNdc.y = -((e.clientY - rect.top) / rect.height) * 2 + 1
-  hasPointer.value = true
+  return true
+}
+
+function handlePointerMove(e: PointerEvent) {
+  if (projectPointer(e)) hasPointer.value = true
+  if (isSinkHeld.value) syncSinkFromPointer()
 }
 
 function handlePointerLeave() {
   hasPointer.value = false
+  // 按住拖出画面时仍保持下沉，直到 pointerup
 }
+
+/** 左键按下：开始持续下沉，位置跟随指针 */
+function handlePointerDown(e: PointerEvent) {
+  if (e.button !== 0 || !camera || !projectPointer(e)) return
+  hasPointer.value = true
+  isSinkHeld.value = true
+  const el = e.currentTarget as HTMLElement | null
+  el?.setPointerCapture?.(e.pointerId)
+  syncSinkFromPointer()
+}
+
+function handlePointerUp(e?: PointerEvent) {
+  if (!isSinkHeld.value) return
+  isSinkHeld.value = false
+  if (e) {
+    const el = e.currentTarget as HTMLElement | null
+    try {
+      el?.releasePointerCapture?.(e.pointerId)
+    } catch {
+      /* capture may already be released */
+    }
+  }
+}
+
+function syncSinkFromPointer() {
+  if (!camera) return
+  raycaster.setFromCamera(pointerNdc, camera)
+  if (raycaster.ray.intersectPlane(groundPlane, hitPoint)) {
+    uniforms.uSinkPos.value.set(hitPoint.x, 0, hitPoint.z)
+  }
+}
+
+/** 左键是否按住（驱动持续下沉） */
+const isSinkHeld = ref(false)
+/** 下沉强度 0..1，按下快攻、松开缓释 */
+let sinkStrength = 0
 
 /** 每帧只改这些 uniform，高度在 GPU 里算 */
 const uniforms = {
@@ -72,6 +122,10 @@ const uniforms = {
   uInfluence: { value: INFLUENCE },
   uBobAmp: { value: BOB_AMPLITUDE },
   uBoxY: { value: BOX_Y },
+  uSinkPos: { value: new THREE.Vector3(0, 0, 0) },
+  uSinkStrength: { value: 0 },
+  uSinkRadius: { value: SINK_RADIUS },
+  uMaxSink: { value: MAX_SINK },
 }
 
 /** 颜色材质与深度材质共用同一套高度逻辑，保证阴影对齐 */
@@ -82,20 +136,43 @@ uniform float uMaxLift;
 uniform float uInfluence;
 uniform float uBobAmp;
 uniform float uBoxY;
+uniform vec3 uSinkPos;
+uniform float uSinkStrength;
+uniform float uSinkRadius;
+uniform float uMaxSink;
 
 float pillarLift(vec2 cell) {
   vec2 d = cell - uFocus.xz;
   float dist = length(d);
-  if (dist >= uInfluence) return 0.0;
 
-  float fall = 1.0 - dist / uInfluence;
-  float dome = cos(dist / uInfluence * PI * 0.5);
-  float n =
-    sin(cell.x * 1.7 + uTime * 1.4) * 0.35 +
-    sin(cell.y * 2.3 - uTime * 1.1) * 0.25 +
-    sin((cell.x + cell.y) * 0.9 + uTime * 0.7) * 0.2;
-  float bob = 0.55 + uFocus.y / (uBobAmp * 2.0 + 0.001);
-  return max(dome * uMaxLift * bob + n * fall * 0.6, 0.0);
+  float lift = 0.0;
+  if (dist < uInfluence) {
+    float fall = 1.0 - dist / uInfluence;
+    float dome = cos(dist / uInfluence * PI * 0.5);
+    float n =
+      sin(cell.x * 1.7 + uTime * 1.4) * 0.35 +
+      sin(cell.y * 2.3 - uTime * 1.1) * 0.25 +
+      sin((cell.x + cell.y) * 0.9 + uTime * 0.7) * 0.2;
+    float bob = 0.55 + uFocus.y / (uBobAmp * 2.0 + 0.001);
+    lift = max(dome * uMaxLift * bob + n * fall * 0.6, 0.0);
+  }
+
+  // 点击下沉：与抬升同构的穹顶，方向相反
+  if (uSinkStrength > 0.001) {
+    float sd = length(cell - uSinkPos.xz);
+    if (sd < uSinkRadius) {
+      float sFall = 1.0 - sd / uSinkRadius;
+      float sDome = cos(sd / uSinkRadius * PI * 0.5);
+      float sn =
+        sin(cell.x * 1.9 + uTime * 1.6) * 0.3 +
+        sin(cell.y * 2.1 - uTime * 1.2) * 0.22 +
+        sin((cell.x - cell.y) * 1.1 + uTime * 0.8) * 0.18;
+      lift -= sDome * uMaxSink * uSinkStrength + sn * sFall * 0.55 * uSinkStrength;
+    }
+  }
+
+  // 下沉最多压到地平面（h ≥ 0），不再穿到 y=0 以下
+  return max(lift, -uBoxY);
 }
 `
 
@@ -106,19 +183,32 @@ const HEIGHT_VERTEX = /* glsl */ `
   vec2 cellXZ = position.xz;
 #endif
 float liftH = pillarLift(cellXZ);
-transformed.y *= (uBoxY + liftH) / uBoxY;
+// 限制在地平面以上；保留极小厚度，避免与地面共面闪烁
+float h = max(uBoxY + liftH, 0.02);
+transformed.y *= h / uBoxY;
 `
 
-function patchVertexShader(shader: THREE.WebGLProgramParametersWithUniforms) {
+/** 阴影 pass 与颜色 pass 同一套高度（均限制在地平面以上） */
+const HEIGHT_VERTEX_SHADOW = HEIGHT_VERTEX
+
+function patchVertexShader(
+  shader: THREE.WebGLProgramParametersWithUniforms,
+  forShadow = false,
+) {
   shader.uniforms.uTime = uniforms.uTime
   shader.uniforms.uFocus = uniforms.uFocus
   shader.uniforms.uMaxLift = uniforms.uMaxLift
   shader.uniforms.uInfluence = uniforms.uInfluence
   shader.uniforms.uBobAmp = uniforms.uBobAmp
   shader.uniforms.uBoxY = uniforms.uBoxY
+  shader.uniforms.uSinkPos = uniforms.uSinkPos
+  shader.uniforms.uSinkStrength = uniforms.uSinkStrength
+  shader.uniforms.uSinkRadius = uniforms.uSinkRadius
+  shader.uniforms.uMaxSink = uniforms.uMaxSink
+  const vertex = forShadow ? HEIGHT_VERTEX_SHADOW : HEIGHT_VERTEX
   shader.vertexShader = shader.vertexShader
     .replace('#include <common>', `#include <common>\n${HEIGHT_PARS}`)
-    .replace('#include <begin_vertex>', `#include <begin_vertex>\n${HEIGHT_VERTEX}`)
+    .replace('#include <begin_vertex>', `#include <begin_vertex>\n${vertex}`)
 }
 
 function fitCamera() {
@@ -201,13 +291,13 @@ onMounted(() => {
     shininess: 18,
     flatShading: false,
   })
-  boxMat.onBeforeCompile = patchVertexShader
+  boxMat.onBeforeCompile = (shader) => patchVertexShader(shader, false)
 
-  // 阴影 pass 必须用同一套顶点位移，否则影子高度对不上柱体
+  // 阴影 pass 必须用同一套高度逻辑，但禁止地面以下投影
   depthMat = new THREE.MeshDepthMaterial({
     depthPacking: THREE.RGBADepthPacking,
   })
-  depthMat.onBeforeCompile = patchVertexShader
+  depthMat.onBeforeCompile = (shader) => patchVertexShader(shader, true)
 
   instanced = new THREE.InstancedMesh(boxGeo, boxMat, COUNT)
   instanced.castShadow = true
@@ -230,11 +320,11 @@ onMounted(() => {
   instanced.instanceMatrix.needsUpdate = true
   scene.add(instanced)
 
-  // 阴影接收面：铺在网格下方，填满画面
+  // 阴影接收面：不透明，避免半透明与阴影叠成大块死黑
   const groundSize = Math.max(COLS, ROWS) * CELL * 2
   const groundGeo = new THREE.PlaneGeometry(groundSize, groundSize)
   const groundMat = new THREE.MeshPhongMaterial({
-    color: 0x1a2a22,
+    color: 0x3a4f44,
     specular: 0x000000,
     shininess: 0,
   })
@@ -244,28 +334,33 @@ onMounted(() => {
   ground.receiveShadow = true
   scene.add(ground)
 
-  // 主光：偏上方侧打，配合斜视近景拉出柱体阴影
-  const keyLight = new THREE.DirectionalLight(0xffffff, 1.4)
-  keyLight.position.set(10, 22, 14)
+  // 主光更接近顶光：侧向投影变短，坑底不容易被整片盖黑
+  const keyLight = new THREE.DirectionalLight(0xffffff, 1.05)
+  keyLight.position.set(6, 36, 12)
   keyLight.target.position.set(0, 0, 0)
   keyLight.castShadow = true
   keyLight.shadow.mapSize.set(2048, 2048)
-  keyLight.shadow.camera.near = 4
-  keyLight.shadow.camera.far = 90
+  keyLight.shadow.camera.near = 8
+  keyLight.shadow.camera.far = 80
   const s = 14
   keyLight.shadow.camera.left = -s
   keyLight.shadow.camera.right = s
   keyLight.shadow.camera.top = s
   keyLight.shadow.camera.bottom = -s
   keyLight.shadow.camera.updateProjectionMatrix()
-  keyLight.shadow.bias = -0.0002
-  keyLight.shadow.normalBias = 0.04
-  keyLight.shadow.radius = 1.5
+  keyLight.shadow.bias = -0.0003
+  keyLight.shadow.normalBias = 0.15
+  keyLight.shadow.radius = 2.5
+  // 影子浓度（Three r165+）
+  keyLight.shadow.intensity = 0.85
   scene.add(keyLight)
   scene.add(keyLight.target)
 
-  const fill = new THREE.AmbientLight(0xb8cfc4, 0.45)
+  // 环境 + 半球光，阴影区保留底色
+  const fill = new THREE.AmbientLight(0xb8cfc4, 0.55)
   scene.add(fill)
+  const hemi = new THREE.HemisphereLight(0xd2e0d8, 0x1a2a22, 0.55)
+  scene.add(hemi)
 
   renderer = new THREE.WebGLRenderer({
     canvas: canvas.value,
@@ -310,6 +405,16 @@ onMounted(() => {
     uniforms.uTime.value = t
     uniforms.uFocus.value.copy(focusSmooth)
 
+    // 按住左键持续下沉：快攻到 1，松开后缓释到 0；按住时位置跟随指针
+    if (isSinkHeld.value) {
+      syncSinkFromPointer()
+      sinkStrength = Math.min(1, sinkStrength + dt / SINK_ATTACK)
+    } else {
+      sinkStrength = Math.max(0, sinkStrength - dt / SINK_RELEASE)
+    }
+    uniforms.uSinkStrength.value = sinkStrength
+    uniforms.uSinkRadius.value = SINK_RADIUS * (0.8 + 0.2 * sinkStrength)
+
     renderer.render(scene, camera)
   }
   animate()
@@ -339,6 +444,7 @@ onUnmounted(() => {
   animation: fadeIn 0.6s ease-out;
   cursor: crosshair;
   touch-action: none;
+  user-select: none;
 }
 
 @keyframes fadeIn {

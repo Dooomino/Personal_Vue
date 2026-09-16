@@ -76,6 +76,7 @@ onMounted(() => {
 
 .main-area {
   flex: 1;
+  height: 100vh;
   width: 100%;
   position: relative;
   overflow: visible;
@@ -85,6 +86,7 @@ onMounted(() => {
 
 .page-fade-in {
   flex: 1;
+  height: 100%;
   display: flex;
   flex-direction: column;
   animation: fadeIn 0.6s ease-out;

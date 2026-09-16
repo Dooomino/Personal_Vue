@@ -38,8 +38,9 @@ import { motion } from 'motion-v'
 <style scoped>
 .about-page {
   height: 100%;
+  min-height: 100vh;
   width: 100%;
-  overflow: hidden auto;
+  overflow: hidden scroll;
   position: relative;
   z-index: 1;
 }
