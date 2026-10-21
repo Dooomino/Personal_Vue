@@ -21,15 +21,15 @@ jobs:
       - run: pnpm run build
 
       # 原子部署：先传到临时目录，成功后原子切换软链
-      - name: Deploy
-        uses: burnett01/rsync-deployments@7
+      - name: Upload dist
+        uses: appleboy/scp-action@v0.1.7
         with:
-          switches: -avz --delete
-          path: dist/
-          remote_path: ${{ secrets.DEPLOY_PATH }}releases/${{ github.sha }}/
-          remote_host: ${{ secrets.SSH_HOST }}
-          remote_user: ${{ secrets.SSH_USER }}
-          remote_key: ${{ secrets.SSH_PRIVATE_KEY }}
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USER }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          source: "dist/*"
+          target: ${{ secrets.DEPLOY_PATH }}releases/${{ github.sha }}/
+          overwrite: true
 
       - name: Activate release
         uses: appleboy/ssh-action@v1
