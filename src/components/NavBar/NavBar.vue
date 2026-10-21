@@ -50,9 +50,9 @@ function onUpdateChecked(v: boolean) { themeStore.toggleDarkMode(v) }
   display: flex;
   align-items: center;
   justify-content: space-between;
-  background: rgba(0, 0, 0, 0.5);
+  background: var(--navbar-bg);
   backdrop-filter: blur(12px);
-  border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+  border-bottom: 1px solid var(--glass-border);
   z-index: 50;
 }
 .nav-left {
@@ -63,22 +63,22 @@ function onUpdateChecked(v: boolean) { themeStore.toggleDarkMode(v) }
 .nav-brand {
   font-size: 16px;
   font-weight: 600;
-  color: #fff;
+  color: var(--text-primary);
   text-decoration: none;
   letter-spacing: -0.01em;
 }
 .nav-links { display: flex; gap: 6px; }
 .nav-links a {
   font-size: 13px;
-  color: rgba(255, 255, 255, 0.5);
+  color: var(--text-secondary);
   text-decoration: none;
   padding: 6px 10px;
   border-radius: 8px;
   transition: all 0.2s ease;
 }
 .nav-links a:hover {
-  color: rgba(255, 255, 255, 0.9);
-  background: rgba(255, 255, 255, 0.06);
+  color: var(--text-primary);
+  background: var(--glass-bg);
 }
 .nav-links a.router-link-exact-active {
   color: #60a5fa;

@@ -45,8 +45,14 @@ $transition-fast: 0.3s linear;
   --glass-border: rgba(0, 0, 0, 0.08);
   --glass-bg-hover: #{rgba($color-primary, 0.06)};
   --glass-border-hover: #{rgba($color-primary, 0.25)};
+  /* 首页顶部面纱：浅色用轻白纱，避免深绿显脏 */
+  --home-veil: rgba(255, 255, 255, 0.45);
+  /* 导航栏：浅色白玻璃，深色半透明黑 */
+  --navbar-bg: rgba(255, 255, 255, 0.8);
 
   &.dark {
+    --home-veil: #33554488;
+    --navbar-bg: rgba(0, 0, 0, 0.5);
     --primary-color: #{$color-primary-light};
     --background-color: #{$dark-bg};
     --text-primary: #{$dark-text};

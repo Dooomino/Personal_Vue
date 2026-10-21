@@ -14,6 +14,7 @@
 <script setup lang="ts">
 import { onMounted, onUnmounted, ref } from 'vue'
 import * as THREE from 'three'
+import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js'
 
 /** 网格规模（远小于原先 128×128，作为页面背景足够填满画面） */
 const COLS = 36
@@ -45,8 +46,9 @@ let camera: THREE.OrthographicCamera | null = null
 let instanced: THREE.InstancedMesh | null = null
 let ground: THREE.Mesh | null = null
 let clock: THREE.Clock | null = null
-let boxMat: THREE.MeshPhongMaterial | null = null
+let boxMat: THREE.Material | null = null
 let depthMat: THREE.MeshDepthMaterial | null = null
+let envTexture: THREE.Texture | null = null
 let rafId = 0
 let resizeHandler: (() => void) | null = null
 
@@ -157,6 +159,10 @@ float pillarLift(vec2 cell) {
     lift = max(dome * uMaxLift * bob + n * fall * 0.6, 0.0);
   }
 
+  // 奇偶行微高度差：等高相邻行会把后排正面遮死（行间只差0.02缝），
+  // 只有制造高度差，正面才露出来 → 亮顶/暗正条带，静息区才有立体感
+  lift += mod(floor(cell.y), 2.0) * 0.35;
+
   // 点击下沉：与抬升同构的穹顶，方向相反
   if (uSinkStrength > 0.001) {
     float sd = length(cell - uSinkPos.xz);
@@ -260,6 +266,11 @@ function disposeScene() {
     scene?.remove(ground)
     ground = null
   }
+  if (envTexture) {
+    if (scene) scene.environment = null
+    envTexture.dispose()
+    envTexture = null
+  }
   if (renderer) {
     renderer.dispose()
     renderer.forceContextLoss()
@@ -285,12 +296,22 @@ onMounted(() => {
   const boxGeo = new THREE.BoxGeometry(BOX_XZ, BOX_Y, BOX_XZ)
   boxGeo.translate(0, BOX_Y * 0.5, 0)
 
-  boxMat = new THREE.MeshPhongMaterial({
-    color: 0xffffff,
-    specular: 0x222222,
-    shininess: 18,
-    flatShading: false,
+  // 毛玻璃质感：透射 + 磨砂模糊，清漆层提供微弱反光
+  boxMat = new THREE.MeshPhysicalMaterial({
+    color: 0xe8efe9, // 微微偏冷绿的白，避免纯白被打爆
+    metalness: 0,
+    roughness: 0.5, // 磨砂粗糙度：透射光被模糊出“毛”感
+    // 0.4 而非 0.75：透射会按 (1-transmission) 削弱漫反射，
+    // 太高会让顶面/正面失去明暗差 → 整片糊成平面（实测教训）
+    transmission: 0.4,
+    thickness: 1.2, // 折射厚度，太薄会像普通透明片
+    ior: 1.42,
+    clearcoat: 0.65, // 表面清漆层：微弱镜面反光
+    clearcoatRoughness: 0.3,
+    specularIntensity: 0.7,
+    transparent: true,
   })
+
   boxMat.onBeforeCompile = (shader) => patchVertexShader(shader, false)
 
   // 阴影 pass 必须用同一套高度逻辑，但禁止地面以下投影
@@ -334,15 +355,16 @@ onMounted(() => {
   ground.receiveShadow = true
   scene.add(ground)
 
-  // 主光更接近顶光：侧向投影变短，坑底不容易被整片盖黑
-  const keyLight = new THREE.DirectionalLight(0xffffff, 1.05)
-  keyLight.position.set(6, 36, 12)
+  // 主光移到前上方（与相机同侧）：顶面/正面受光，柔和高光落在朝向相机的一面
+  // 1.5 起步实测：2.0 会把两个面都 clip 到纯白，明暗差消失（实测教训）
+  const keyLight = new THREE.DirectionalLight(0xffffff, 1.5)
+  keyLight.position.set(-12, 44, 22)
   keyLight.target.position.set(0, 0, 0)
   keyLight.castShadow = true
   keyLight.shadow.mapSize.set(2048, 2048)
-  keyLight.shadow.camera.near = 8
-  keyLight.shadow.camera.far = 80
-  const s = 14
+  keyLight.shadow.camera.near = 10
+  keyLight.shadow.camera.far = 110
+  const s = 22
   keyLight.shadow.camera.left = -s
   keyLight.shadow.camera.right = s
   keyLight.shadow.camera.top = s
@@ -356,9 +378,22 @@ onMounted(() => {
   scene.add(keyLight)
   scene.add(keyLight.target)
 
-  // 环境 + 半球光，阴影区保留底色
-  const fill = new THREE.AmbientLight(0xb8cfc4, 0.55)
+  // 背上方补光（不投影）：给顶面镀一条微弱反光，与前侧主光形成层次
+  const rim = new THREE.DirectionalLight(0xeaf3ee, 0.38)
+  rim.position.set(16, 30, -26)
+  scene.add(rim)
+
+  // 前上方点光：正交视图里平行面反光完全均匀，只有随距离衰减的点光
+  // 才能在网格上铺出一片由近及远的高光渐变，玻璃反光才“看得见”
+  const sheen = new THREE.PointLight(0xffffff, 300, 0, 2)
+  sheen.position.set(6, 30, 22)
+  scene.add(sheen)
+
+  // 环境 + 半球光只做底光：压低强度，把对比让给主光与高光
+  // （压低是关键：底光过强会把顶面/正面明暗差冲平 → 2D 感）
+  const fill = new THREE.AmbientLight(0xb8cfc4, 0.12)
   scene.add(fill)
+  // 半球光是"顶亮面暗"差异的主力：顶面吃天光、正面只吃侧向混色
   const hemi = new THREE.HemisphereLight(0xd2e0d8, 0x1a2a22, 0.55)
   scene.add(hemi)
 
@@ -373,6 +408,15 @@ onMounted(() => {
   renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.5))
   renderer.shadowMap.enabled = true
   renderer.shadowMap.type = THREE.PCFSoftShadowMap
+  // 毛玻璃的磨砂会把透射糊掉，半分辨率足够，省一次全屏 pass 开销
+  renderer.transmissionResolutionScale = 0.6
+
+  // 环境贴图：清漆层/玻璃面的反射来源（没有它“微弱反光”无处可反）
+  const pmrem = new THREE.PMREMGenerator(renderer)
+  envTexture = pmrem.fromScene(new RoomEnvironment(), 0.04).texture
+  scene.environment = envTexture
+  scene.environmentIntensity = 0.35
+  pmrem.dispose()
 
   clock = new THREE.Clock()
 
@@ -440,7 +484,7 @@ onUnmounted(() => {
 
 <style scoped>
 .main {
-  background: linear-gradient(to bottom, #33554488 0%, rgba(255, 255, 255, 0) 100%);
+  background: linear-gradient(to bottom, var(--home-veil) 0%, rgba(255, 255, 255, 0) 100%);
   animation: fadeIn 0.6s ease-out;
   cursor: crosshair;
   touch-action: none;
@@ -450,13 +494,11 @@ onUnmounted(() => {
 @keyframes fadeIn {
   from {
     opacity: 0;
-    background: linear-gradient(to bottom, #00000088 0%, rgba(255, 255, 255, 0) 100%);
     transform: translateY(1%);
   }
 
   to {
     opacity: 1;
-    background: linear-gradient(to bottom, #33554488 0%, rgba(255, 255, 255, 0) 100%);
     transform: translateY(0);
   }
 }
