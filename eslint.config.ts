@@ -16,7 +16,12 @@ export default defineConfigWithVueTs(
     files: ['**/*.{ts,mts,tsx,vue}'],
   },
 
-  globalIgnores(['**/dist/**', '**/dist-ssr/**', '**/coverage/**']),
+  globalIgnores([
+    '**/dist/**',
+    '**/dist-ssr/**',
+    '**/coverage/**',
+    'public/**', // 第三方静态库（draco 等），不归 lint 管
+  ]),
 
   pluginVue.configs['flat/essential'],
   vueTsConfigs.recommended,
