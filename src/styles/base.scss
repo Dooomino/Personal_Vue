@@ -69,7 +69,8 @@ $transition-fast: 0.3s linear;
 }
 
 html {
-  font-family: sans-serif;
+  /* Raleway 来自老站（Google Fonts CDN），中文字符自动回退系统字体 */
+  font-family: 'Raleway', 'PingFang SC', 'Microsoft YaHei', 'Noto Sans SC', sans-serif;
   background-color: var(--light-background-color);
   a { text-decoration: none; color: inherit; }
 

@@ -5,6 +5,7 @@
     :is-last="isLast"
     :animated="animated"
     variant="scale"
+    :reverse="reverse"
   />
 </template>
 
@@ -21,6 +22,7 @@ const props = defineProps<{
   container: HTMLElement | null
   isLast?: boolean
   animated?: boolean
+  reverse?: boolean
 }>()
 
 const canvasRef = inject<import('vue').Ref<HTMLCanvasElement | null>>('slideCanvasRef')!

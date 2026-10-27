@@ -1,14 +1,36 @@
 <template>
-  <div class="slide-content" ref="slideContentEl">
+  <div class="slide-content" :class="{ 'has-media': hasMedia }" ref="slideContentEl">
     <SlideReveal :container="container" :variant="variant">
-      <h2 ref="nameEl" class="project-name">{{ project.name }}</h2>
-      <p ref="descEl" class="project-desc">{{ project.description }}</p>
-      <div class="tags">
-        <span v-for="tech in project.techStack" :key="tech" ref="tagEls" class="tag">{{ tech }}</span>
-      </div>
-      <div class="links">
-        <a v-if="project.github" ref="linkEls" :href="project.github" target="_blank" class="link">↗ GitHub</a>
-        <a v-if="project.demo" ref="linkEls" :href="project.demo" target="_blank" class="link">↗ Demo</a>
+      <div class="cols" :class="{ reverse }">
+        <div class="col-text">
+          <h2 ref="nameEl" class="project-name">{{ project.name }}</h2>
+          <p ref="descEl" class="project-desc">{{ project.description }}</p>
+          <div class="tags">
+            <span v-for="tech in project.techStack" :key="tech" ref="tagEls" class="tag">{{ tech }}</span>
+          </div>
+          <div class="links">
+            <a v-if="project.github" ref="linkEls" :href="project.github" target="_blank" class="link">↗ GitHub</a>
+            <a v-if="project.demo" ref="linkEls" :href="project.demo" target="_blank" class="link">↗ Demo</a>
+          </div>
+        </div>
+        <div v-if="hasMedia" class="col-media">
+          <img
+            v-for="img in project.images"
+            :key="img"
+            class="media-img"
+            :class="{ stack: (project.images?.length ?? 0) > 1 }"
+            :src="img"
+            :alt="project.name"
+            loading="lazy"
+          />
+          <video
+            v-if="project.video"
+            class="media-video"
+            :src="project.video"
+            controls
+            preload="metadata"
+          ></video>
+        </div>
       </div>
     </SlideReveal>
     <div class="arrow-wrap">
@@ -20,7 +42,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, onBeforeUnmount, watch } from 'vue'
+import { ref, onMounted, onBeforeUnmount, watch, computed } from 'vue'
 import gsap from 'gsap'
 import type { PortfolioProject } from '@/data/resume'
 import SlideReveal from '@/components/ui/SlideReveal.vue'
@@ -33,7 +55,13 @@ const props = defineProps<{
   isLast?: boolean
   animated?: boolean
   variant?: 'fade-up' | 'fade-left' | 'scale' | 'blur' | 'none'
+  /** 图文左右交替（老站项目页布局）：true = 媒体在左 */
+  reverse?: boolean
 }>()
+
+const hasMedia = computed(
+  () => (props.project.images?.length ?? 0) > 0 || !!props.project.video,
+)
 
 // --- refs ---
 const slideContentEl = ref<HTMLElement | null>(null)
@@ -64,9 +92,7 @@ onMounted(() => {
   if (!arrowPath.value || props.isLast) return
   const path = arrowPath.value
   const length = path.getTotalLength()
-
   gsap.set(path, { strokeDasharray: length, strokeDashoffset: length })
-
   ctx = gsap.context(() => {
     gsap.to(path, {
       strokeDashoffset: 0,
@@ -78,9 +104,9 @@ onMounted(() => {
     gsap.to(arrowSvg.value, {
       y: 6,
       duration: 1,
+      ease: 'power1.inOut',
       repeat: -1,
       yoyo: true,
-      ease: 'power1.inOut',
     })
   })
 })
@@ -126,7 +152,7 @@ watch(
       }
     })
   },
-  { immediate: true }
+  { immediate: true },
 )
 
 onBeforeUnmount(() => ctx?.revert())
@@ -140,6 +166,59 @@ onBeforeUnmount(() => ctx?.revert())
   justify-content: center;
   width: 100%;
   height: 90vh;
+}
+/* 图文两栏（有媒体时），否则维持原居中单栏 */
+.cols {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+.slide-content.has-media .cols {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: clamp(24px, 4vw, 56px);
+  align-items: center;
+  padding: 0 clamp(8px, 3vw, 48px);
+}
+.slide-content.has-media .cols.reverse .col-text { order: 2; }
+.slide-content.has-media .cols.reverse .col-media { order: 1; }
+.col-text {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+.col-media {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  min-width: 0;
+}
+.media-img {
+  max-width: 100%;
+  max-height: 44vh;
+  object-fit: contain;
+  border-radius: 12px;
+  border: 1px solid var(--glass-border);
+  background: var(--glass-bg);
+}
+.media-img.stack { max-height: 21vh; }
+.media-video {
+  width: 100%;
+  max-width: 520px;
+  border-radius: 12px;
+  border: 1px solid var(--glass-border);
+  background: #000;
+}
+@media (max-width: 768px) {
+  .slide-content.has-media .cols { grid-template-columns: 1fr; }
+  .slide-content.has-media .cols.reverse .col-text { order: 1; }
+  .slide-content.has-media .cols.reverse .col-media { order: 2; }
+  .media-img { max-height: 26vh; }
+  .media-img.stack { max-height: 16vh; }
 }
 .project-name {
   font-size: 24px;

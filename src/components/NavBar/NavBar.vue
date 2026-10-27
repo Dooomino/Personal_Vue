@@ -3,11 +3,11 @@
     <div class="nav-left">
       <router-link to="/" class="nav-brand">陶雨迪</router-link>
       <nav class="nav-links">
-        <router-link to="/">主页</router-link>
-        <router-link to="/experience">经历</router-link>
-        <router-link to="/portfolio">项目</router-link>
-        <router-link to="/about">关于</router-link>
-        <router-link to="/contact">联系</router-link>
+        <router-link to="/" style="--order: 1">主页</router-link>
+        <router-link to="/experience" style="--order: 2">经历</router-link>
+        <router-link to="/portfolio" style="--order: 3">项目</router-link>
+        <router-link to="/about" style="--order: 4">关于</router-link>
+        <router-link to="/contact" style="--order: 5">联系</router-link>
       </nav>
     </div>
     <div class="nav-right">
@@ -75,6 +75,13 @@ function onUpdateChecked(v: boolean) { themeStore.toggleDarkMode(v) }
   padding: 6px 10px;
   border-radius: 8px;
   transition: all 0.2s ease;
+  /* 老站导航逐项入场动画（--order 阶梯延迟） */
+  animation: navIn 0.5s ease-out both;
+  animation-delay: calc(var(--order, 1) * 0.08s);
+}
+@keyframes navIn {
+  from { opacity: 0; transform: translateY(-6px); }
+  to { opacity: 1; transform: translateY(0); }
 }
 .nav-links a:hover {
   color: var(--text-primary);

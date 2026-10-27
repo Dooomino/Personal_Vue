@@ -23,6 +23,10 @@ export interface PortfolioProject {
   techStack: string[]
   github?: string
   demo?: string
+  /** 老站作品截图（public/works/），可多张 */
+  images?: string[]
+  /** 老站演示视频（public/works/） */
+  video?: string
   variant?: 'fade-up' | 'fade-left' | 'scale' | 'blur' | 'none'
 }
 
@@ -138,6 +142,7 @@ export const portfolioProjects: PortfolioProject[] = [
     techStack: ['Processing', 'JavaScript', 'Canvas'],
     github: 'https://github.com/Dooomino/MagicCircle',
     demo: 'https://dooomino.github.io/MagicCircle/',
+    images: ['/works/Mag circle.png'],
     variant: 'scale',
   },
   {
@@ -145,6 +150,8 @@ export const portfolioProjects: PortfolioProject[] = [
     description: '一个使用 Processing 和 P5.js 的太阳系演示。',
     techStack: ['Processing', 'P5.js'],
     github: 'https://github.com/Dooomino/Solar',
+    images: ['/works/Solar.png'],
+    video: '/works/Solar.mp4',
     variant: 'fade-left',
   },
   {
@@ -152,6 +159,7 @@ export const portfolioProjects: PortfolioProject[] = [
     description: '一个 OpenGL 程序，显示由立方体组成的太阳系，大小和运动比例与现实中的太阳系相似。',
     techStack: ['OpenGL', 'C++'],
     github: 'https://github.com/Dooomino/OpenGL-Solar-System',
+    images: ['/works/Solar_opengl.png'],
     variant: 'blur',
   },
   {
@@ -159,6 +167,7 @@ export const portfolioProjects: PortfolioProject[] = [
     description: '一个类似于终端的 Glitch 文本图像生成器，基于 HTML5 的 SVG 和 Canvas 构建。',
     techStack: ['HTML5', 'SVG', 'Canvas', 'JavaScript'],
     github: 'https://github.com/Dooomino/Text-Glitch',
+    images: ['/works/Glitch.png'],
     variant: 'fade-up',
   },
   {
@@ -166,6 +175,7 @@ export const portfolioProjects: PortfolioProject[] = [
     description: '一个生成伪随机符文的简单项目。',
     techStack: ['Processing'],
     github: 'https://github.com/Dooomino/rune_generator',
+    video: '/works/Rune.mp4',
     variant: 'scale',
   },
   {
@@ -189,6 +199,7 @@ export const portfolioProjects: PortfolioProject[] = [
     description: '一个对立体视觉的两种算法的演示，基于 Jupyter Notebook 构建。',
     techStack: ['Python', 'Jupyter Notebook', 'Computer Vision'],
     github: 'https://github.com/Dooomino/Stereoscopic-Demo',
+    images: ['/works/Disparity.png'],
     variant: 'fade-up',
   },
   {
@@ -218,6 +229,28 @@ export const portfolioProjects: PortfolioProject[] = [
     techStack: ['Python', 'Rust', 'wgpu', 'Compute Shader'],
     github: 'https://github.com/Dooomino/gpu-ascii',
     variant: 'fade-up',
+  },
+  // 以下三个 Blender 作品混搭自 Personal_Web 老站项目页
+  {
+    name: '马克杯',
+    description: '灵感来自于一个制作时失败的杯子。使用 Blender 2.8 制作。',
+    techStack: ['Blender'],
+    images: ['/works/The Mug.png'],
+    variant: 'fade-up',
+  },
+  {
+    name: '3D 场景',
+    description: '这是一个用 Blender 2.8 制作的山洞场景，使用了体积光和雕刻工具。',
+    techStack: ['Blender'],
+    images: ['/works/3d Scene1.jpg', '/works/3d Scene2.jpg'],
+    variant: 'fade-left',
+  },
+  {
+    name: '水（牛奶）模拟',
+    description: '一个用 Blender 2.8 制作的液体动画，有环境照明和液体物理模拟。',
+    techStack: ['Blender'],
+    video: '/works/Milk simulate.mp4',
+    variant: 'scale',
   },
 ]
 
