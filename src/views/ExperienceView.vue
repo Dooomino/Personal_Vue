@@ -3,7 +3,9 @@
     <div class="bg-layer" aria-hidden="true">
       <canvas ref="canvasRef" class="bg-canvas"></canvas>
     </div>
-    <div class="content" v-if="canvasReady">
+    <!-- canvasReady 门控导致工作经历/教育内容整页不显示（月相 canvas 本身同步渲染），
+         去掉门控，背景画布与文字内容并存 -->
+    <div class="content">
       <div class="header fade-in">
         <h1 class="page-title">工作经历</h1>
         <p class="page-subtitle">{{ summary }}</p>
@@ -63,7 +65,6 @@ const PHASE_COUNT = 8
 const MOON_PHASES: number[] = Array.from({ length: PHASE_COUNT }, (_, i) => i / PHASE_COUNT)
 
 const canvasRef = ref<HTMLCanvasElement | null>(null)
-const canvasReady = ref(false)
 
 let renderer: THREE.WebGLRenderer | null = null
 let camera: THREE.OrthographicCamera | null = null
@@ -333,9 +334,6 @@ function drawCanvas() {
   }
 
   animate()
-
-// 暂时禁用
-// canvasReady.value = true
 }
 
 onMounted(() => {
@@ -364,6 +362,8 @@ onBeforeUnmount(() => {
   inset: 0;
   z-index: 0;
   pointer-events: none;
+  /* 月相只是装饰：压暗整层，避免亮金满月透过半透明卡片干扰文字阅读 */
+  opacity: 0.4;
 }
 .bg-canvas {
   width: 100%;
