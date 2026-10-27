@@ -46,10 +46,16 @@ import { contact } from '@/data/resume'
   justify-content: center;
   position: relative;
   z-index: 1;
+  /* 老站联系页视差封面（background-attachment: fixed） */
+  background:
+    linear-gradient(rgba(0, 0, 0, 0.5), rgba(0, 0, 0, 0.5)),
+    url('/images/cover.webp') center / cover no-repeat;
+  background-attachment: fixed;
 }
 .center { width: 100%; max-width: 400px; padding: 24px; }
 .card {
-  background: var(--glass-bg);
+  /* 复用导航栏玻璃面(浅色白玻璃/深色黑玻璃): 照片背景上保证卡片可读 */
+  background: var(--navbar-bg);
   backdrop-filter: blur(16px);
   border: 1px solid var(--glass-border);
   border-radius: 20px;
