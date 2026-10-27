@@ -142,7 +142,7 @@ export const portfolioProjects: PortfolioProject[] = [
     techStack: ['Processing', 'JavaScript', 'Canvas'],
     github: 'https://github.com/Dooomino/MagicCircle',
     demo: 'https://dooomino.github.io/MagicCircle/',
-    images: ['/works/Mag circle.png'],
+    images: ['/works/Mag_circle.png'],
     variant: 'scale',
   },
   {
@@ -235,21 +235,21 @@ export const portfolioProjects: PortfolioProject[] = [
     name: '马克杯',
     description: '灵感来自于一个制作时失败的杯子。使用 Blender 2.8 制作。',
     techStack: ['Blender'],
-    images: ['/works/The Mug.png'],
+    images: ['/works/The_Mug.png'],
     variant: 'fade-up',
   },
   {
     name: '3D 场景',
     description: '这是一个用 Blender 2.8 制作的山洞场景，使用了体积光和雕刻工具。',
     techStack: ['Blender'],
-    images: ['/works/3d Scene1.jpg', '/works/3d Scene2.jpg'],
+    images: ['/works/3d_Scene1.jpg', '/works/3d_Scene2.jpg'],
     variant: 'fade-left',
   },
   {
     name: '水（牛奶）模拟',
     description: '一个用 Blender 2.8 制作的液体动画，有环境照明和液体物理模拟。',
     techStack: ['Blender'],
-    video: '/works/Milk simulate.mp4',
+    video: '/works/Milk_simulate.mp4',
     variant: 'scale',
   },
 ]
