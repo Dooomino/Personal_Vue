@@ -1,6 +1,12 @@
 <template>
   <footer class="footer">
-    <p>© {{ year }} 陶雨迪 · <a href="https://github.com/Dooomino/Personal_Vue" target="_blank">源码</a></p>
+    <p>
+      © {{ year }} 陶雨迪 ·
+      <a href="https://github.com/Dooomino/Personal_Vue" target="_blank">源码</a> ·
+      <a href="https://creativecommons.org/licenses/by-sa/4.0/" target="_blank" rel="license"
+        >CC BY-SA 4.0</a
+      >
+    </p>
   </footer>
 </template>
 

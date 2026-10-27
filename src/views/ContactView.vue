@@ -2,7 +2,8 @@
   <div class="page">
     <div class="center fade-in">
       <div class="card">
-        <h1 class="card-title">联系我</h1>
+        <img class="avatar" src="/images/avt.jpg" alt="陶雨迪" />
+        <h1 class="card-title">陶雨迪</h1>
         <p class="card-subtitle">期待与你的交流</p>
         <div class="list">
           <a :href="`mailto:${contact.email}`" class="item">
@@ -66,6 +67,15 @@ import { contact } from '@/data/resume'
   font-size: 14px;
   color: var(--text-secondary);
   margin: 0 0 36px;
+}
+.avatar {
+  width: 88px;
+  height: 88px;
+  border-radius: 50%;
+  object-fit: cover;
+  display: block;
+  margin: 0 auto 16px;
+  border: 1px solid var(--glass-border);
 }
 .list { display: flex; flex-direction: column; gap: 12px; }
 .item {

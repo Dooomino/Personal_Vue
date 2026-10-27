@@ -7,6 +7,15 @@
       <h1 class="page-title">关于我</h1>
       <p class="page-subtitle">{{ summary }}</p>
 
+      <!-- 老站 ABOUT ME 段落 -->
+      <div class="intro-block">
+        <p v-for="(para, i) in aboutIntro" :key="i" class="intro-para">{{ para }}</p>
+      </div>
+      <div class="resume-row">
+        <a class="page-btn" :href="resumes.cn" target="_blank">简历</a>
+        <a class="page-btn" :href="resumes.en" target="_blank">简历(英文)</a>
+      </div>
+
       <h2 class="section-title">技术栈</h2>
       <div class="skills-grid">
         <motion.div
@@ -29,7 +38,7 @@
 </template>
 
 <script setup lang="ts">
-import { summary, skills } from '@/data/resume'
+import { summary, skills, aboutIntro, resumes } from '@/data/resume'
 import AboutContainer from '@/components/main/AboutContainer.vue'
 import SkillBadge from '@/components/ui/SkillBadge.vue'
 import { motion } from 'motion-v'
@@ -72,6 +81,53 @@ import { motion } from 'motion-v'
   font-weight: 600;
   color: var(--text-primary);
   margin: 0 0 24px;
+}
+/* 老站简介段落 + 简历按钮 */
+.intro-block {
+  margin: 0 0 24px;
+}
+.intro-para {
+  font-size: 14.5px;
+  color: var(--text-secondary);
+  line-height: 1.85;
+  margin: 0 0 14px;
+}
+.resume-row {
+  display: flex;
+  gap: 12px;
+  margin: 0 0 48px;
+}
+.page-btn {
+  font-size: 13.5px;
+  color: var(--text-primary);
+  text-decoration: none;
+  padding: 10px 26px;
+  background: #000;
+  border: 1px solid #000;
+  border-radius: 999px;
+  transition:
+    background 0.25s ease,
+    color 0.25s ease;
+}
+.page-btn:hover {
+  background: transparent;
+  color: var(--text-primary);
+  border-color: var(--glass-border-hover);
+}
+:root:not(.dark) .page-btn {
+  color: #fff;
+}
+:root:not(.dark) .page-btn:hover {
+  color: var(--text-primary);
+}
+.dark .page-btn {
+  background: #fff;
+  border-color: #fff;
+  color: #111;
+}
+.dark .page-btn:hover {
+  background: transparent;
+  color: var(--text-primary);
 }
 .skills-grid {
   display: grid;

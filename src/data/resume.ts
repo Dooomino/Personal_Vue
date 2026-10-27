@@ -52,6 +52,19 @@ export const contact: ContactInfo = {
 export const summary =
   '具备 2 年+前端开发经验的全栈开发者，熟练掌握 Vue.js 生态与 TypeScript，主导完成多个企业级 Web 应用的前端架构设计与开发。具备 AI 产品前端开发经验（大模型对话界面、流式交互），熟悉 Node.js 后端服务与 DevOps 部署。注重工程质量、用户体验与代码可维护性。'
 
+/** 关于页个人简介（混搭自 Personal_Web 老站 ABOUT ME 段落，去掉过时的年限表述） */
+export const aboutIntro: string[] = [
+  '多年来，我的每一次学习经历都是对我改进和发展的激励，极大地促进了我今天的编程能力。',
+  '我毕业于加拿大的安大略省理工大学。我主修计算机科学，专业是数字媒体，辅修数学。多年来我一直在进行编码和设计，我对计算机图形学、计算机视觉和人机交互有相当的了解。',
+  '请看下面我的全部背景资料。',
+]
+
+/** 简历下载（静态文件，来自老站 pages/resume/） */
+export const resumes = {
+  cn: '/resume/yudi-tao-resume-cn.pdf',
+  en: '/resume/yudi-tao-resume-en.pdf',
+}
+
 export const workExperience: WorkExperience[] = [
   {
     company: '深圳市元道通信技术有限公司',
@@ -94,12 +107,17 @@ export const workExperience: WorkExperience[] = [
 ]
 
 export const skills: SkillCategory[] = [
-  { category: '编程语言', items: ['JavaScript', 'TypeScript', 'Python', 'C++'] },
+  { category: '编程语言', items: ['JavaScript', 'TypeScript', 'Python', 'C++', 'Java'] },
   { category: '前端框架', items: ['Vue 2/3', 'Vite', 'Webpack'] },
   { category: 'UI & 样式', items: ['HTML5', 'CSS3', 'Element UI', '响应式设计'] },
   { category: '状态管理', items: ['Vuex', 'Pinia'] },
   { category: 'Web 技术', items: ['RESTful API', 'WebSocket', 'SSE', 'Axios'] },
-  { category: '可视化', items: ['ECharts', 'Canvas', 'SVG', 'WebGL', 'Three.js', 'GLSL'] },
+  { category: '可视化', items: ['ECharts', 'Canvas', 'SVG', 'WebGL', 'Three.js', 'GLSL', 'D3.js'] },
+  { category: '计算机图形学', items: ['OpenGL', 'Shader'] },
+  { category: '计算机视觉', items: ['OpenCV'] },
+  { category: '机器学习', items: ['TensorFlow', 'Scikit-learn'] },
+  { category: '游戏 & 3D', items: ['Unity', 'Blender'] },
+  { category: '平面设计', items: ['Photoshop', 'Illustrator'] },
   { category: '小程序', items: ['微信小程序'] },
   { category: 'Node.js', items: ['Express', '中间件开发'] },
   { category: 'DevOps', items: ['Docker', 'Linux', 'Nginx', 'Git', 'Hallmark'] },
