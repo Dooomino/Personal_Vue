@@ -7,8 +7,8 @@
          去掉门控，背景画布与文字内容并存 -->
     <div class="content">
       <div class="header fade-in">
-        <h1 class="page-title">工作经历</h1>
-        <p class="page-subtitle">{{ summary }}</p>
+        <h1 class="u-page-title">工作经历</h1>
+        <p class="u-page-subtitle page-subtitle">{{ summary }}</p>
       </div>
 
       <section
@@ -18,8 +18,8 @@
         :style="{ animationDelay: `${(ei + 1) * 100}ms` }"
       >
         <div class="section-header">
-          <h2 class="section-title">{{ exp.company }}</h2>
-          <span class="badge badge--blue">{{ exp.title }}</span>
+          <h2 class="u-section-title section-title">{{ exp.company }}</h2>
+          <span class="u-tag">{{ exp.title }}</span>
           <span class="section-period">{{ exp.period }}</span>
         </div>
         <div class="cards">
@@ -28,8 +28,8 @@
       </section>
 
       <section class="section fade-in" :style="{ animationDelay: `${(workExperience.length + 1) * 100}ms` }">
-        <h2 class="section-title">教育背景</h2>
-        <div class="edu-card">
+        <h2 class="u-section-title">教育背景</h2>
+        <div class="edu-card u-card">
           <div class="edu-header">
             <h3 class="edu-school">{{ education.school }}</h3>
             <span class="edu-period">{{ education.period }}</span>
@@ -380,18 +380,7 @@ onBeforeUnmount(() => {
 .header {
   margin-bottom: 56px;
 }
-.page-title {
-  font-size: 32px;
-  font-weight: 700;
-  color: var(--text-primary);
-  margin: 0 0 12px;
-  letter-spacing: -0.02em;
-}
 .page-subtitle {
-  font-size: 14px;
-  color: var(--text-secondary);
-  margin: 0;
-  line-height: 1.7;
   max-width: 600px;
 }
 .section {
@@ -405,9 +394,6 @@ onBeforeUnmount(() => {
   flex-wrap: wrap;
 }
 .section-title {
-  font-size: 20px;
-  font-weight: 600;
-  color: var(--text-primary);
   margin: 0;
 }
 .section-period {
@@ -431,10 +417,7 @@ onBeforeUnmount(() => {
   gap: 20px;
 }
 .edu-card {
-  background: var(--glass-bg);
   backdrop-filter: blur(12px);
-  border: 1px solid var(--glass-border);
-  border-radius: 16px;
   padding: 28px;
 }
 .edu-header {

@@ -4,8 +4,8 @@
       <AboutContainer />
     </div>
     <div class="content-section">
-      <h1 class="page-title">关于我</h1>
-      <p class="page-subtitle">{{ summary }}</p>
+      <h1 class="u-page-title">关于我</h1>
+      <p class="u-page-subtitle page-subtitle">{{ summary }}</p>
 
       <!-- 老站 ABOUT ME 段落 -->
       <div class="intro-block">
@@ -16,12 +16,12 @@
         <a class="page-btn" :href="resumes.en" target="_blank">简历(英文)</a>
       </div>
 
-      <h2 class="section-title">技术栈</h2>
+      <h2 class="u-section-title">技术栈</h2>
       <div class="skills-grid">
         <motion.div
           v-for="(s, si) in skills"
           :key="s.category"
-          class="skill-card"
+          class="skill-card u-card"
           :initial="{ opacity: 0, y: 12 }"
           :animate="{ opacity: 1, y: 0 }"
           :transition="{ delay: si * 0.06, type: 'spring', stiffness: 300, damping: 25 }"
@@ -62,25 +62,9 @@ import { motion } from 'motion-v'
   margin: 0 auto;
   padding: 32px 28px 80px;
 }
-.page-title {
-  font-size: 32px;
-  font-weight: 700;
-  color: var(--text-primary);
-  margin: 0 0 12px;
-  letter-spacing: -0.02em;
-}
 .page-subtitle {
-  font-size: 14px;
-  color: var(--text-secondary);
-  line-height: 1.7;
   margin: 0 0 48px;
   max-width: 600px;
-}
-.section-title {
-  font-size: 20px;
-  font-weight: 600;
-  color: var(--text-primary);
-  margin: 0 0 24px;
 }
 /* 老站简介段落 + 简历按钮 */
 .intro-block {
@@ -139,13 +123,10 @@ import { motion } from 'motion-v'
   .skills-grid { grid-template-columns: 1fr 1fr; }
 }
 .skill-card {
-  background: var(--glass-bg);
-  border: 1px solid var(--glass-border);
-  border-radius: 14px;
   padding: 18px;
   transition:
-    border-color 0.3s,
-    background-color 0.3s;
+    border-color var(--duration-fast),
+    background-color var(--duration-fast);
 }
 .skill-category {
   font-size: 12px;

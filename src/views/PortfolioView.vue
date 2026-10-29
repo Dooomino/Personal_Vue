@@ -6,8 +6,8 @@
     </div>
     <ParticleScroll ref="psRef" :density="2" :spread="200" :band="400" :fade="0.8">
       <div class="slide title-slide">
-        <h1 class="page-title">我的项目</h1>
-        <p class="page-subtitle">个人作品与开源贡献</p>
+        <h1 class="u-page-title slide-heading">我的项目</h1>
+        <p class="u-page-subtitle slide-heading">个人作品与开源贡献</p>
       </div>
       <div
         v-for="(p, i) in portfolioProjects"
@@ -93,6 +93,6 @@ watch(container, (el, prev) => {
   z-index: 2;
 }
 .title-slide { gap: 12px; text-align: center; display: flex; flex-direction: column; justify-content: center; height: 100vh; }
-.page-title { font-size: 32px; font-weight: 700; color: var(--text-primary); margin: 0; }
-.page-subtitle { font-size: 14px; color: var(--text-secondary); margin: 0; }
+/* flex gap 控制间距,标题不带 primitives 的默认下边距 */
+.slide-heading { margin: 0; }
 </style>

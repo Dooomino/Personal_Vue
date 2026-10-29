@@ -1,5 +1,5 @@
 <template>
-  <div class="card" :style="{ animationDelay: `${index * 80}ms` }">
+  <div class="card u-card" :style="{ animationDelay: `${index * 80}ms` }">
     <div class="card-header">
       <div>
         <h3 class="card-title">{{ project.name }}</h3>
@@ -22,10 +22,7 @@ defineProps<{ project: WorkProject; index: number }>()
 
 <style scoped>
 .card {
-  background: var(--glass-bg);
   backdrop-filter: blur(12px);
-  border: 1px solid var(--glass-border);
-  border-radius: 16px;
   padding: 28px;
   animation: cardIn 0.5s ease both;
 }

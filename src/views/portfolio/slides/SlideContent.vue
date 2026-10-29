@@ -6,7 +6,7 @@
           <h2 ref="nameEl" class="project-name">{{ project.name }}</h2>
           <p ref="descEl" class="project-desc">{{ project.description }}</p>
           <div class="tags">
-            <span v-for="tech in project.techStack" :key="tech" ref="tagEls" class="tag">{{ tech }}</span>
+            <span v-for="tech in project.techStack" :key="tech" ref="tagEls" class="u-tag">{{ tech }}</span>
           </div>
           <div class="links">
             <a v-if="project.github" ref="linkEls" :href="project.github" target="_blank" class="link">↗ GitHub</a>
@@ -242,14 +242,7 @@ onBeforeUnmount(() => ctx?.revert())
   margin-bottom: 20px;
   justify-content: center;
 }
-.tag {
-  font-size: 12px;
-  padding: 4px 12px;
-  border-radius: 999px;
-  color: var(--primary-color);
-  background: var(--tag-bg);
-  border: 1px solid var(--tag-border);
-}
+
 .links {
   display: flex;
   gap: 16px;

@@ -33,15 +33,15 @@ $transition-fast: 0.3s linear;
    项目页 slide 颜色由 GSAP 负责,排除以免双重平滑拖沓 */
 * {
   transition:
-    color 0.4s ease,
-    background-color 0.4s ease,
-    border-color 0.4s ease,
-    fill 0.4s ease,
-    stroke 0.4s ease,
-    box-shadow 0.4s ease;
+    color var(--duration-theme),
+    background-color var(--duration-theme),
+    border-color var(--duration-theme),
+    fill var(--duration-theme),
+    stroke var(--duration-theme),
+    box-shadow var(--duration-theme);
 }
 html {
-  transition: background-color 0.4s ease;
+  transition: background-color var(--duration-theme);
 }
 .slide-reveal,
 .slide-reveal * {
@@ -71,6 +71,12 @@ html {
   --navbar-bg: rgba(255, 255, 255, 0.8);
   /* 绿色标签文字：浅色主题需要深绿才能在浅底上可读 */
   --tag-green: #16a34a;
+  /* 圆角与动效时长 tokens（主题无关） */
+  --radius-lg: 16px;
+  --radius-md: 12px;
+  --radius-pill: 999px;
+  --duration-theme: 0.4s;
+  --duration-fast: 0.25s;
 
   &.dark {
     --home-veil: #33554488;
@@ -163,6 +169,47 @@ body,
   canvas {
     @include full-size;
   }
+}
+
+// === Component primitives ===
+// 新增组件直接组合这些基类与下方 u- 工具类；配色/圆角/时长一律走 :root tokens，
+// 深浅色切换的差异全部收敛在 :root 与 &.dark 的变量覆盖里。
+/* 页级标题 */
+.u-page-title {
+  font-size: 32px;
+  font-weight: 700;
+  color: var(--text-primary);
+  letter-spacing: -0.02em;
+  margin: 0 0 12px;
+}
+/* 页级副标题/导语 */
+.u-page-subtitle {
+  font-size: 14px;
+  color: var(--text-secondary);
+  line-height: 1.7;
+  margin: 0;
+}
+/* 区块标题 */
+.u-section-title {
+  font-size: 20px;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin: 0 0 24px;
+}
+/* 玻璃卡片表面：背景/描边/圆角；内边距与悬浮态由具体组件补充 */
+.u-card {
+  background: var(--glass-bg);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-lg);
+}
+/* 标签胶囊 */
+.u-tag {
+  font-size: 12px;
+  padding: 4px 12px;
+  border-radius: var(--radius-pill);
+  color: var(--primary-color);
+  background: var(--tag-bg);
+  border: 1px solid var(--tag-border);
 }
 
 // === Utility classes ===

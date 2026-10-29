@@ -15,7 +15,7 @@
       </p>
       <p class="specs-label">我的专业领域</p>
       <ul class="specs">
-        <li v-for="s in specs" :key="s">{{ s }}</li>
+        <li v-for="s in specs" :key="s" class="u-tag">{{ s }}</li>
       </ul>
       <router-link class="more" to="/about">更多我可以做的事情 ⟶</router-link>
     </div>
@@ -98,13 +98,9 @@ const specs = ['计算机图形学', '数字媒体', '网页设计', '平面设�
   grid-template-columns: 1fr 1fr;
   gap: 8px;
 }
-.specs li {
+.specs .u-tag {
   font-size: 14px;
-  color: var(--text-primary);
   padding: 7px 10px;
-  background: var(--tag-bg);
-  border: 1px solid var(--tag-border);
-  border-radius: 999px;
 }
 .more {
   display: inline-block;
