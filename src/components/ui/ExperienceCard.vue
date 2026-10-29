@@ -77,7 +77,8 @@ defineProps<{ project: WorkProject; index: number }>()
   font-size: 11px;
   padding: 3px 9px;
   border-radius: 999px;
-  color: #4ade80;
+  /* 主题感知：浅色主题用深绿,深色主题用亮绿(见 base.scss --tag-green) */
+  color: var(--tag-green);
   background: rgba(74, 222, 128, 0.08);
   border: 1px solid rgba(74, 222, 128, 0.15);
 }

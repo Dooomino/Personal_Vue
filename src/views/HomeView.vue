@@ -43,7 +43,8 @@ const specs = ['计算机图形学', '数字媒体', '网页设计', '平面设�
   width: min(440px, 42vw);
   padding: 28px 30px;
   text-align: right;
-  background: var(--glass-bg);
+  /* 不可预测的亮色3D画布之上必须用实面(白玻璃/黑玻璃),纯玻璃会白字压亮底 */
+  background: var(--navbar-bg);
   backdrop-filter: blur(14px);
   border: 1px solid var(--glass-border);
   border-radius: 18px;

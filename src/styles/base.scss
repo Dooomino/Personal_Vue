@@ -36,8 +36,8 @@ $transition-fast: 0.3s linear;
   --dark-background-color: #{$dark-bg};
   --dark-text: #{$dark-text};
   --text-primary: #{$light-text};
-  --text-secondary: rgba(0, 0, 0, 0.55);
-  --text-muted: rgba(0, 0, 0, 0.35);
+  --text-secondary: rgba(0, 0, 0, 0.65);
+  --text-muted: rgba(0, 0, 0, 0.5);
   --tag-border: #{rgba($color-primary, 0.25)};
   --tag-bg: #{rgba($color-primary, 0.1)};
   --arrow-color: rgba(0, 0, 0, 0.2);
@@ -49,15 +49,18 @@ $transition-fast: 0.3s linear;
   --home-veil: rgba(255, 255, 255, 0.45);
   /* 导航栏：浅色白玻璃，深色半透明黑 */
   --navbar-bg: rgba(255, 255, 255, 0.8);
+  /* 绿色标签文字：浅色主题需要深绿才能在浅底上可读 */
+  --tag-green: #16a34a;
 
   &.dark {
     --home-veil: #33554488;
     --navbar-bg: rgba(0, 0, 0, 0.5);
+    --tag-green: #4ade80;
     --primary-color: #{$color-primary-light};
     --background-color: #{$dark-bg};
     --text-primary: #{$dark-text};
-    --text-secondary: rgba(255, 255, 255, 0.55);
-    --text-muted: rgba(255, 255, 255, 0.35);
+    --text-secondary: rgba(255, 255, 255, 0.65);
+    --text-muted: rgba(255, 255, 255, 0.5);
     --tag-border: #{rgba($color-primary-light, 0.15)};
     --tag-bg: #{rgba($color-primary-light, 0.08)};
     --arrow-color: rgba(255, 255, 255, 0.2);

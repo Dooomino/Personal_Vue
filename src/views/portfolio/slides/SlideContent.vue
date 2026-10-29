@@ -261,7 +261,7 @@ onBeforeUnmount(() => ctx?.revert())
   text-decoration: none;
   transition: color 0.2s;
 }
-.link:hover { color: #93c5fd; }
+.link:hover { text-decoration: underline; }
 .arrow-wrap {
   margin-top: auto;
   margin-bottom: 8rem;

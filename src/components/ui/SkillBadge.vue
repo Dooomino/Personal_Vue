@@ -11,17 +11,18 @@ defineProps<{ skill: string; delay?: number }>()
   font-size: 13px;
   padding: 5px 12px;
   border-radius: 6px;
-  background: rgba(255, 255, 255, 0.06);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  color: rgba(255, 255, 255, 0.75);
+  /* 主题感知：原为深色主题专用白字,浅色主题下白底白字不可读 */
+  background: var(--glass-bg);
+  border: 1px solid var(--glass-border);
+  color: var(--text-secondary);
   backdrop-filter: blur(4px);
   transition: all 0.25s ease;
   animation: fadeUp 0.4s ease both;
 }
 .badge:hover {
-  background: rgba(96, 165, 250, 0.12);
-  border-color: rgba(96, 165, 250, 0.25);
-  color: #93c5fd;
+  background: var(--glass-bg-hover);
+  border-color: var(--glass-border-hover);
+  color: var(--text-primary);
   transform: translateY(-1px);
 }
 @keyframes fadeUp {

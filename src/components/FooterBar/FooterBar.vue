@@ -30,6 +30,6 @@ const year = new Date().getFullYear()
   text-decoration: none;
   transition: color 0.2s;
 }
-.footer a:hover { color: #60a5fa; }
+.footer a:hover { color: var(--text-primary); text-decoration: underline; }
 </style>
-<!-- ponytail: hardcoded hover, upgrade path: var(--primary-color) -->
+

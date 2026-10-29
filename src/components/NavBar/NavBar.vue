@@ -88,8 +88,9 @@ function onUpdateChecked(v: boolean) { themeStore.toggleDarkMode(v) }
   background: var(--glass-bg);
 }
 .nav-links a.router-link-exact-active {
-  color: #60a5fa;
-  background: rgba(96, 165, 250, 0.1);
+  /* 主题感知：浅色主题下硬编码浅蓝在白底上几乎看不见 */
+  color: var(--primary-color);
+  background: var(--tag-bg);
 }
 .nav-right { display: flex; align-items: center; }
 </style>
