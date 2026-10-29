@@ -28,6 +28,26 @@ $transition-fast: 0.3s linear;
 }
 
 // === Base ===
+/* 主题切换过渡：CSS 变量切换本身不会过渡,元素需自行声明属性。
+   这里全局兜底颜色类属性;自带 transition 的组件规则优先级更高不受影响;
+   项目页 slide 颜色由 GSAP 负责,排除以免双重平滑拖沓 */
+* {
+  transition:
+    color 0.4s ease,
+    background-color 0.4s ease,
+    border-color 0.4s ease,
+    fill 0.4s ease,
+    stroke 0.4s ease,
+    box-shadow 0.4s ease;
+}
+html {
+  transition: background-color 0.4s ease;
+}
+.slide-reveal,
+.slide-reveal * {
+  transition: none;
+}
+
 :root {
   --primary-color: #{$color-primary};
   --background-color: #ffffff;

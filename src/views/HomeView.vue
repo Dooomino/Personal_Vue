@@ -114,7 +114,10 @@ const specs = ['计算机图形学', '数字媒体', '网页设计', '平面设�
   padding: 9px 18px;
   border: 1px solid var(--glass-border-hover);
   border-radius: 999px;
-  transition: background 0.25s ease;
+  transition:
+    background 0.25s ease,
+    color 0.25s ease,
+    border-color 0.25s ease;
 }
 .more:hover {
   background: var(--glass-bg-hover);

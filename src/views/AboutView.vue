@@ -107,7 +107,8 @@ import { motion } from 'motion-v'
   border-radius: 999px;
   transition:
     background 0.25s ease,
-    color 0.25s ease;
+    color 0.25s ease,
+    border-color 0.25s ease;
 }
 .page-btn:hover {
   background: transparent;
@@ -142,7 +143,9 @@ import { motion } from 'motion-v'
   border: 1px solid var(--glass-border);
   border-radius: 14px;
   padding: 18px;
-  transition: border-color 0.3s;
+  transition:
+    border-color 0.3s,
+    background-color 0.3s;
 }
 .skill-category {
   font-size: 12px;
